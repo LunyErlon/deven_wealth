@@ -1,75 +1,87 @@
 # Documentação: pagina_financas.py
 
 ## Propósito
-Atua como o "Livro-Caixa" do usuário para as finanças do cotidiano. Após a atualização da regra "50/30/20", ele também atua como um mentor financeiro, impedindo que o usuário mascare gastos de estilo de vida como se fossem essenciais para sobrevivência. Agora conta com o **Extrator Híbrido** e **O Purgatório de Transações**, viabilizando a importação de faturas e extratos (CSV e OFX) com triage e o conceito de *Atrito Positivo*.
+Atua como o "Livro-Caixa" do usuário para as finanças do cotidiano. Após a integração da regra **50/30/20**, também atua como um mentor financeiro, alertando visualmente quando gastos de estilo de vida ameaçam as necessidades básicas ou os aportes de riqueza. 
 
-## Como Funciona
-A classe `PaginaFinancas` lida com transações simples, divididas inteligentemente em Macro-Categorias e filtradas por mês, suportando lançamentos manuais e em lote por importação bancária.
+Inclui o **Extrator Híbrido** e **O Purgatório de Transações**, viabilizando a importação de faturas e extratos (CSV e OFX) com triagem inteligente baseada no conceito de **Atrito Positivo**, além do **Motor de Contas Recorrentes** com suporte a contas de valor variável e cancelamento orgânico (**Loop Autolimpante**).
 
-- **`ExtratorFaturas` (Fase 1 - Extrator Híbrido)**:
-  - Roteador inteligente que detecta a extensão (`.ofx` ou `.csv`).
-  - **Motor OFX (`ofxparse`)**:
-    - Suporta arquivos OFX de contas correntes e cartões de crédito (`ofx.accounts` e `ofx.account`).
-    - Resolve a peculiaridade de bancos brasileiros (ex: Nubank, Itaú), onde o campo `payee` frequentemente é vazio/genérico ("Compra no débito") e o estabelecimento real fica no campo `memo`.
-    - Corrige preventivamente inconsistências de codificação de caracteres (mojibake entre ISO-8859-1 e UTF-8).
-    - Detecta débitos (despesas) e créditos (receitas) preservando o valor absoluto positivo no banco de dados.
-  - **Motor CSV (`pandas`)**:
-    - Detecção automática de múltiplos encodings (`utf-8`, `utf-8-sig`, `latin-1`, `cp1252`) e separadores (`,`, `;`, `\t`).
-    - Mapeamento heurístico de colunas (localiza `Data`, `Valor`, `Descrição/Título`).
-    - Distingue faturas de cartão de crédito (onde lançamentos são positivos mas representam despesas) de extratos tradicionais (onde despesas são negativas).
-  - **Caçador de Parcelamento (Regex `detectar_parcelamento`)**:
-    - Identifica automaticamente compras parceladas no cartão em padrões como `1/10`, `02/12`, `PARC 03/05` ou `Parcela 1 de 10`.
-    - Filtra falsos positivos de datas (ex: `TED 15/08`) validando que `parcela_atual <= total_parcelas` e limites de parcelas de cartão.
-    - Exibe badges visuais informativas `💳 [1/10]` na tabela de triage com tooltip de parcelas restantes e compromisso futuro.
+---
 
-- **`DialogPurgatorioTransacoes` (Fase 2 - Fila de Processamento e Atrito Positivo)**:
-  - Tabela intermediária de triage: os dados do arquivo bancário entram no sistema, mas **não** são salvos diretamente no banco de dados oficial.
-  - Obriga o usuário a examinar cada gasto e selecionar sua respectiva categoria e grupo da regra 50/30/20.
-  - **Controles Avançados**:
-    - Checkboxes individuais para marcar/desmarcar transações que não devem ser importadas (ex: pagamento de fatura, transferências entre contas próprias).
-    - Filtro de busca em tempo real por descrição.
-    - Classificação rápida em massa para agilizar itens semelhantes.
-    - Botão "➕ Nova Categoria": permite criar na hora uma categoria faltante sem perder o progresso da tabela.
-    - Contador de estatísticas dinâmicas (linhas selecionadas, pendentes de classificação, somatórios de despesas e receitas).
-  - **Validação Didática**:
-    - Se o usuário tentar salvar o lote com transações pendentes de categoria, o sistema exibe um alerta de Atrito Positivo, perguntando se ele deseja voltar para classificar ou importar apenas as que já foram categorizadas.
-    - Insere no banco com `origem = 'Importado'`.
+## Componentes e Como Funciona
 
-- **`DialogBoasVindasRecorrentes` (Assistente de Início & Loop Autolimpante)**:
-  - Pop-up inteligente de início de mês acionado automaticamente pelo `main.py` ou manualmente pelo botão `🔁 Contas Recorrentes`.
-  - Compara o mês anterior com o mês atual para identificar quais despesas recorrentes (`recorrente = 1`) ainda estão pendentes.
-  - **Lista Editável de Lançamentos**:
-    - Permite ajustar valores flutuantes (ex: luz, água ou gás) diretamente na tabela antes de confirmar.
-    - Sugere automaticamente o mesmo dia de vencimento do mês anterior ajustado para os limites do mês atual.
-    - Permite editar descrições.
-  - **O Loop Autolimpante**:
-    - Se o usuário terminou de pagar uma conta (ex: consórcio) ou cancelou um serviço (ex: streaming), basta **desmarcar** ou excluir da lista.
-    - Ao confirmar, o sistema grava apenas as contas marcadas (com `recorrente = 1`). A conta desmarcada não entra no mês atual, quebrando o elo da corrente.
-    - No mês seguinte, o motor fará a varredura olhando para o mês anterior e essa conta não existirá mais para o radar, sumindo organicamente sem necessidade de telas extras de cancelamento.
+### 1. `ExtratorFaturas` (Motor de ETL Híbrido)
+- **Roteamento Inteligente**: Detecta a extensão do arquivo selecionado (`.ofx` ou `.csv`).
+- **Motor OFX (`ofxparse`)**:
+  - Suporta extratos de contas correntes e faturas de cartões de crédito (`ofx.accounts` e `ofx.account`).
+  - Resolve a peculiaridade de bancos brasileiros (ex: Nubank, Itaú), onde o campo `payee` frequentemente é nulo/genérico ("Compra no débito") e o estabelecimento real fica no campo `memo`.
+  - Corrige preventivamente inconsistências de codificação de caracteres (*mojibake* entre ISO-8859-1 e UTF-8).
+  - Normaliza débitos (despesas) e créditos (receitas) preservando o valor monetário absoluto.
+- **Motor CSV (`pandas`)**:
+  - Detecção automática de múltiplos encodings (`utf-8`, `utf-8-sig`, `latin-1`, `cp1252`) e delimitadores (`,`, `;`, `\t`).
+  - Mapeamento heurístico de colunas (localiza `Data`, `Valor`, `Descrição/Título`).
+  - Distingue faturas de cartão de crédito (onde lançamentos de compras são positivos) de extratos tradicionais (onde saídas são negativas).
+- **Caçador de Parcelamento (Regex `detectar_parcelamento`)**:
+  - Identifica automaticamente compras parceladas no cartão em formatos como `1/10`, `02/12`, `PARC 03/05` ou `Parcela 1 de 10`.
+  - Filtra falsos positivos de datas (ex: `TED 15/08`) validando que `1 <= parcela_atual <= total_parcelas` e limites de parcelas de cartão (máx 60).
+  - Exibe badges visuais informativos `💳 [1/10]` na tabela com tooltip indicando parcelas restantes e compromisso futuro.
 
-- **`setup_ui()`**:
-  1. Possui os KPIs normais de Receita, Despesa e Saldo Livre.
-  2. Possui um segundo nível de KPIs **"A Regra 50/30/20"**: Mostra de forma ativa a porcentagem do seu salário que está indo para Necessidades, Desejos e Construção de Riqueza.
-  3. **Filtro Mensal e Ações:** No topo da página, um seletor exibe os meses disponíveis, acompanhado do botão `📥 Importar Fatura (CSV / OFX)` e do botão `🔁 Contas Recorrentes`.
-  4. Formulário de inserção manual: Conta com o checkbox `🔁 Conta Recorrente (Repetir mensalmente)` logo abaixo dos inputs para marcar gastos periódicos.
-  5. Tabela de histórico: Exibe o indicador visual `🔁` na descrição de todas as despesas recorrentes ativas.
+---
 
-- **`importar_fatura()`**:
-  - Abre o seletor `QFileDialog` filtrando por `.csv` e `.ofx`.
-  - Aciona o `ExtratorFaturas` e abre o `DialogPurgatorioTransacoes`.
-  - Ao concluir, atualiza automaticamente o seletor de meses e recarrega os dados do orçamento.
+### 2. `DialogPurgatorioTransacoes` (Fila de Triage & Atrito Positivo)
+- **A Fila Temporária**: Os dados do extrato/fatura entram no sistema, mas **não** vão diretamente para o banco oficial. Ficam retidos aguardando classificação do usuário.
+- **Trava de Segurança de Atrito Positivo**:
+  - O botão **`💾 Salvar Lote no Livro-Caixa`** inicia **desabilitado (`setEnabled(False)`)**.
+  - O botão só se torna verde e clicável quando **100% das transações marcadas receberem uma categoria válida**.
+  - Enquanto houver pendências, o botão permanece desabilitado em tom acinzentado com um *tooltip* orientativo (ex: *"Atrito Positivo: Faltam 3 transações sem categoria para habilitar o salvamento em lote"*).
+- **Ferramentas de Produtividade**:
+  - **`⚡ Aplicar em Massa`**: Permite selecionar dezenas de transações e aplicar uma categoria comum a todas de uma só vez.
+  - **Filtro em Tempo Real**: Campo de busca textual por descrição.
+  - **Botão `➕ Nova Categoria`**: Abre o `DialogGerenciarCategorias` sem perder o progresso de edição da tabela.
+  - **Checkboxes Individuais**: Permite ignorar transações que não devem ser contabilizadas (ex: pagamento de fatura, transferências entre contas próprias).
+  - **Estatísticas Dinâmicas**: Atualização instantânea de selecionados, classificados, soma de despesas e receitas.
+- **Persistência em Lote de Alta Performance**:
+  - O método `salvar_lote()` utiliza `self.db.executar_query_lote()` (`cursor.executemany`), gravando dezenas ou centenas de registros no SQLite em uma única transação atômica em milissegundos com `origem = 'Importado'`.
 
-- **`carregar_meses()`**: Identifica todas as datas em que houveram lançamentos no banco de dados, compila em uma lista de meses (ex: "10/2026") e atualiza o filtro no topo da página.
+---
 
-- **`carregar_dados()`**: 
-  A leitura do banco é filtrada usando a restrição `WHERE t.data LIKE 'YYYY-MM-%'` de acordo com o Mês/Ano selecionado no topo da página. Calcula porcentagens da regra 50/30/20 com alertas visuais dinâmicos.
+### 3. `DialogBoasVindasRecorrentes` (Assistente de Início & Loop Autolimpante)
+- **Detecção Cross-Month**: Pop-up inteligente disparado na inicialização do aplicativo (`main.py`) ou sob demanda pelo botão `🔁 Contas Recorrentes`.
+- Compara os gastos recorrentes do mês anterior com os já lançados no mês corrente, levantando o que ainda falta pagar.
+- **Lista Editável de Lançamentos**:
+  - Permite alterar valores de contas flutuantes (ex: luz, água ou gás) diretamente na tabela antes de confirmar.
+  - Sugere automaticamente o mesmo dia de vencimento do mês anterior, ajustado para os limites do mês atual.
+- **O Loop Autolimpante**:
+  - Ao cancelar um serviço ou terminar de pagar uma conta, o usuário apenas **desmarca** ou exclui a linha no pop-up.
+  - O sistema grava apenas as contas marcadas (com `recorrente = 1`). A conta desmarcada é atualizada no mês anterior com `recorrente = 0`, quebrando o elo da corrente para os meses futuros de forma orgânica e sem burocracia.
+  - Utiliza `executar_query_lote` para consolidação atômica.
 
-- **`salvar_transacao()`**: Pega os dados dos campos do formulário manual e joga na tabela `transacoes` com `origem = 'Manual'`.
+---
 
-- **`excluir_transacao(id)`**: Remove o registro usando o ID do SQLite.
+### 4. `DialogGerenciarCategorias` (Gestão Dinâmica 50/30/20)
+- Permite cadastrar novas categorias escolhendo:
+  - **Nome** (ex: "Ração do Pet", "Academia").
+  - **Tipo** ("Despesa" ou "Receita").
+  - **Grupo da Regra 50/30/20** ("Necessidades", "Desejos", "Construção de Riqueza" ou "Sem Grupo").
+- Exclusão com confirmação e atualização dinâmica imediata dos combos em todas as telas.
 
-- **`DialogGerenciarCategorias`** e **`abrir_gerenciador_categorias()`**: Permite ao usuário criar novas categorias vinculadas à regra 50/30/20 ("Necessidades", "Desejos", "Construção de Riqueza") ou excluí-las caso não haja transações atreladas.
+---
+
+### 5. `PaginaFinancas` (Interface Principal)
+- **KPIs do Mês**:
+  - Receitas, Despesas e Saldo Livre.
+  - **Cartões 50/30/20 Dinâmicos**: Consultam as metas personalizadas na tabela `configuracoes` (`meta_necessidades`, `meta_desejos`, `meta_riqueza`).
+  - **Cores de Alerta**: Alternam automaticamente para tom de alerta (`#f38ba8`) se o percentual de gastos em Necessidades ou Desejos exceder o teto, ou se os investimentos ficarem abaixo da meta.
+- **Formulário de Inserção Manual**:
+  - Data, Descrição, Categoria, Valor e o checkbox `🔁 Conta Recorrente (Repetir mensalmente)`.
+- **Tabela de Histórico**:
+  - Exibe os lançamentos com identificador visual `🔁` para contas recorrentes, badge de categoria e botão de exclusão.
+- **Filtro Mensal e Botões de Ação**:
+  - Dropdown com meses disponíveis alimentado dinamicamente por `carregar_meses()`.
+  - Botão `📥 Importar Fatura (CSV / OFX)` e botão `🔁 Contas Recorrentes`.
+
+---
 
 ## Interligação
-- Recebe a instância do banco (`self.db`) injetada via construtor.
-- Totalmente compatível com SQLite e o ecossistema criptografado do Deven Wealth.
+- **Recebe**: A instância do banco `DBManager` injetada via construtor pelo `main.py`.
+- **Dispara**: Callbacks de atualização de dados e recálculo de orçamentos.
+- **Persistência**: Grava e lê das tabelas `transacoes`, `categorias` e `configuracoes` no SQLite com suporte a transações em lote.

@@ -1,19 +1,72 @@
 # Documentação: main.py
 
 ## Propósito
-O `main.py` é o ponto de entrada (Entry Point) e o contêiner principal do aplicativo Deven Wealth. Ele não contém lógicas complexas de dados ou matemática, focando exclusivamente na orquestração da interface e na inicialização dos serviços.
+O `main.py` é o ponto de entrada (Entry Point) e o orquestrador principal do aplicativo Deven Wealth. Ele inicializa os serviços centrais, define a arquitetura de navegação, gerencia timers de segundo plano e conecta os sinais e callbacks entre as diferentes páginas do sistema.
 
-## Responsabilidades
-1. **Inicialização do App**: Instancia o `QApplication` do PyQt6.
-2. **Setup do Motor**: Cria as instâncias de `DBManager` e `MarketAPI`.
-3. **Criação do Banco e Migrações**: Possui o método `inicializar_banco_dados()`. Ele cria as tabelas padrão e inclui mecanismos de **Migração de Banco**: usa `ALTER TABLE` para injetar a coluna `grupo_regra` em `categorias` e `recorrente` em `transacoes` caso não existam. Além disso, carrega a **Lista Padrão do 50/30/20** de categorias na instalação zerada.
-4. **Motor Detetive de Contas Recorrentes (`verificar_contas_recorrentes`)**: Sempre que o aplicativo inicializa, o motor varre o mês anterior em busca de contas recorrentes (`recorrente = 1`) que ainda não foram lançadas no mês corrente. Caso encontre pendências, abre o pop-up de boas-vindas com lista editável e suporte ao **Loop Autolimpante**.
-5. **Radar de Dividendos em Segundo Plano (`WorkerRadarDividendos` via `QThread`)**: Ao iniciar, o aplicativo renderiza o painel localmente e dispara uma thread paralela assíncrona. Ela varre a B3 via `MarketAPI` procurando dividendos recentes dos ativos em `carteira_atual`. Se houver proventos não registrados, dispara o pop-up de validação sem travar a interface. Se não houver, encerra silenciosamente.
-6. **Layout Base (Chassi)**: Constrói a janela (`QMainWindow`), o menu lateral (Barra de Navegação) contendo um rodapé embutido na parte inferior, e a área central (`QStackedWidget`).
-7. **Roteamento de Telas**: Instancia as páginas (`PaginaResumo`, `PaginaCarteira`, etc.), colocando-as dentro do baralho (`QStackedWidget`), e conecta os botões do menu lateral para alternar o índice deste baralho.
-8. **Callbacks e Sincronização**: Ao instanciar as páginas, ele passa os conectores para que uma página atualize a outra. Exemplo: passa o `fn_atualizar_resumo=self.pagina_resumo.carregar_dados` para a `PaginaCarteira` e `PaginaRendimentos`, garantindo que o gráfico de dividendos mude assim que um provento for confirmado.
-9. **Estilização Global e Identidade Visual**: O método `aplicar_estilos()` insere o QSS (semelhante ao CSS) que define a paleta de cores escura, tipografia global (fonte monoespaçada, estilo terminal) e bordas da interface. A paleta utiliza tons dourados (`#D4AF37`) para destacar a identidade visual, além do fundo quase preto (`#050505`) no menu e rodapé.
-10. **Ícones Dinâmicos**: Os ícones do menu lateral utilizam a biblioteca `qtawesome` (estilo outline/linha). Um sistema de estado dinâmico (no método `atualizar_menu()`) colore o ícone e sublinha o botão ativo, deixando os inativos em um tom esmaecido.
+---
+
+## Responsabilidades e Arquitetura
+
+### 1. Inicialização e Ciclo de Vida
+- Cria a instância `QApplication` do PyQt6.
+- Instancia os motores de dados: `self.db = DBManager()` e `self.api = MarketAPI(self.db)`.
+- Gerencia o evento de fechamento (`closeEvent`): garante que qualquer transação seja concluída antes de delegar a cifragem do banco para o `SecurityManager`.
+
+---
+
+### 2. Criação do Banco e Migrações Idempotentes (`inicializar_banco_dados`)
+- Cria todas as tabelas essenciais (`ativos_catalogo`, `carteira_atual`, `cache_mercado`, `rendimentos`, `transacoes`, `categorias`, `configuracoes`).
+- **Mecanismos de Migração Segura**:
+  - Inspeciona o esquema existente usando `PRAGMA table_info` antes de executar alterações.
+  - Executa `ALTER TABLE categorias ADD COLUMN grupo_regra TEXT DEFAULT 'Sem Grupo'` se a coluna não existir.
+  - Executa `ALTER TABLE transacoes ADD COLUMN recorrente INTEGER DEFAULT 0` se a coluna não existir.
+- **Carga Inicial Inteligente**: Popula automaticamente o catálogo padrão da Regra 50/30/20 se a tabela de categorias estiver vazia (com categorias essenciais como Moradia, Mercado Básico, Aportes, Lazer, etc.).
+
+---
+
+### 3. Automações em Segundo Plano & Timers Inteligentes
+Para garantir que a janela principal abra instantaneamente e sem travamentos perceptíveis para o usuário:
+- **Assistente de Contas Recorrentes (`verificar_contas_recorrentes`)**:
+  - Agendado via `QTimer.singleShot(400, ...)` logo após a abertura da janela.
+  - Varre o mês anterior em busca de contas recorrentes ausentes no mês corrente e exibe o `DialogBoasVindasRecorrentes` com suporte ao **Loop Autolimpante**.
+- **Radar de Dividendos Assíncrono (`iniciar_radar_dividendos_background`)**:
+  - Agendado via `QTimer.singleShot(1200, ...)` para não disputar I/O com a inicialização.
+  - Instancia a `WorkerRadarDividendos(QThread)` em processo paralelo.
+  - Se houver proventos recentes para os ativos em custódia, o slot `ao_detectar_dividendos_background()` abre o `DialogRadarDividendos` permitindo a validação da Data-Com.
+
+---
+
+### 4. Layout Base (Chassi) e Navegação
+- Constrói a janela principal (`QMainWindow`) com tamanho padrão 1280x800 e proporções responsivas.
+- **Barra Lateral de Navegação (Sidebar)**:
+  - Menu estilizado com botões que alternam as páginas dentro de um `QStackedWidget`.
+  - Ícones dinâmicos gerados via biblioteca `qtawesome` (estilo outline/linha).
+  - O método `atualizar_menu()` destaca o botão e o ícone da página ativa em dourado (`#D4AF37`), esmaecendo os inativos.
+  - Rodapé embutido com versão, status do sistema e indicador do cofre criptografado.
+
+---
+
+### 5. Injeção de Dependências & Callbacks Cruzados
+Ao empilhar as telas no `QStackedWidget`, o `main.py` injeta os serviços necessários:
+- `PaginaResumo(self.db)`
+- `PaginaCarteira(self.db, fn_atualizar_resumo=self.pagina_resumo.carregar_dados)`
+- `PaginaAnalise(self.db, self.api, fn_atualizar_carteira=self.pagina_carteira.carregar_dados)`
+- `PaginaFinancas(self.db)`
+- `PaginaRendimentos(self.db, self.api, fn_atualizar_resumo=self.pagina_resumo.carregar_dados)`
+- `PaginaConfig(self.db, self.api, fn_reset_db=self.reset_banco_dados)`
+
+Essa malha de *callbacks* assegura que qualquer alteração de patrimônio na Carteira ou provento nos Rendimentos atualize a Visão Geral em tempo real.
+
+---
+
+### 6. Estilização Global (QSS Catppuccin Mocha)
+O método `aplicar_estilos()` insere o CSS do Qt (QSS) que padroniza:
+- Fundo escuro profundo (`#1e1e2e` e `#11111b`).
+- Destaques dourados (`#D4AF37`) e acentos suaves (`#89b4fa`, `#a6e3a1`, `#fab387`, `#f38ba8`).
+- Tipografia moderna e uniforme em botões, campos de texto, tabelas e cabeçalhos.
+
+---
+
 ## Interligação
-- **Depende de**: Todos os outros arquivos (`market_api.py`, `db_manager.py`, e todas as `pagina_*.py`). Ele os importa e os junta.
-- **Fornece a**: Nenhum. Ele é o topo da hierarquia, nada o importa.
+- **Importa**: Todos os módulos de views (`pagina_*.py`), persistência (`db_manager.py`), API (`market_api.py`) e segurança (`security_manager.py`).
+- **Ponto de Entrada**: Inicializado pelo `Launcher` seguro após a validação da senha-mestra.

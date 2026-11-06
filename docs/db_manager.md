@@ -1,18 +1,45 @@
 # Documentação: db_manager.py
 
 ## Propósito
-A classe `DBManager` é a camada de persistência de dados. Ela age como uma interface limpa entre o código Python em várias páginas do projeto e o banco de dados local SQLite (`deven_wealth.db`).
+A classe `DBManager` é a camada de persistência e acesso a dados (DAO/Repository) do Deven Wealth. Ela isola o código da interface gráfica das especificidades do SQLite local (`deven_wealth.db`), gerenciando conexões, conversão de tipos, integridade transacional e operações em lote de alta performance.
+
+---
 
 ## Como Funciona
-O arquivo contém a classe `DBManager`, inicializada com o nome do arquivo do banco. 
-Para evitar que o resto do aplicativo precise lidar diretamente com as esquisitices e ponteiros do SQLite (como os cursores tradicionais que retornam tuplas `(1, "Ação")`), ele abstrai isso retornando dados em formato de dicionário `{"id": 1, "tipo": "Ação"}`.
+
+O `DBManager` encapsula o driver `sqlite3` nativo do Python, aplicando padronização no retorno das consultas e tratamento seguro de exceções com rollback automático em caso de falha.
 
 ### Principais Métodos
-- **`conectar()`**: Abre uma conexão SQLite e aplica `sqlite3.Row` no `row_factory`. Isso é o que permite o retorno dos dados em dicionários.
-- **`executar_query(query, parametros)`**: Utilizado para operações de escrita (CRUD) individuais - `INSERT`, `UPDATE`, `DELETE`. Ele abre a conexão, faz o commit, retorna o ID gerado, lida com exceções (rollback) e fecha a conexão com segurança no bloco `finally`.
-- **`executar_query_lote(query, lista_parametros)`**: Utilizado para operações de escrita em lote (*Batch*) em milissegundos utilizando `cursor.executemany(...)` dentro de uma única transação atômica. Essencial para salvar lotes de transações do Purgatório de Faturas, lote de Contas Recorrentes e confirmação em lote de dividendos do Radar.
-- **`buscar_dados(query, parametros)`**: Utilizado para operações de leitura (`SELECT`). Ele busca todos os dados, converte as linhas do `sqlite3.Row` para dicionários nativos do Python e retorna uma lista.
+
+#### 1. `conectar()`
+- Abre a conexão com o arquivo do banco de dados SQLite (`deven_wealth.db`).
+- Configura `conexao.row_factory = sqlite3.Row`. Isso permite que qualquer resultado de leitura seja acessado tanto por índice numérico quanto pelo nome da coluna, sendo posteriormente convertido para dicionários nativos (`dict`).
+
+#### 2. `executar_query(query, parametros=())`
+- Utilizado para operações de escrita pontuais (`INSERT`, `UPDATE`, `DELETE`).
+- Abre a conexão, instancia o cursor e executa a instrução parametrizada (prevenindo vulnerabilidades de SQL Injection).
+- Em caso de sucesso, efetua o `conexao.commit()` e retorna o `cursor.lastrowid` (útil para recuperar chaves primárias geradas).
+- Em caso de erro, executa `conexao.rollback()` para evitar inconsistências no banco e fecha a conexão no bloco `finally`.
+
+#### 3. `executar_query_lote(query, lista_parametros)`
+- **Operações em Lote de Alta Performance (Batch)**:
+  - Projetado para persistir dezenas ou centenas de registros em milissegundos usando `cursor.executemany(query, lista_parametros)`.
+  - Executa todas as inserções sob **uma única transação atômica** (`BEGIN TRANSACTION ... COMMIT`).
+  - Reduz o tempo de inserção de múltiplos segundos (no loop individual) para cerca de 1 a 2 milissegundos.
+  - Retorna `cursor.rowcount` com a contagem total de linhas afetadas.
+  - Utilizado amplamente em:
+    - **O Purgatório de Transações** (`DialogPurgatorioTransacoes`): para salvar lotes de faturas bancárias importadas.
+    - **Assistente de Início** (`DialogBoasVindasRecorrentes`): para lançar em massa as contas recorrentes do mês.
+    - **Radar de Dividendos** (`DialogRadarDividendos`): para consolidar lotes de proventos validados.
+
+#### 4. `buscar_dados(query, parametros=())`
+- Utilizado para consultas de leitura (`SELECT`).
+- Executa a query com parâmetros sanitizados e invoca `cursor.fetchall()`.
+- Converte iterativamente os objetos `sqlite3.Row` em dicionários reais do Python (`[dict(linha) for linha in linhas]`), facilitando o consumo por componentes do PyQt6 e pelo Pandas.
+
+---
 
 ## Interligação
 - **Instanciado em**: `main.py` (`self.db = DBManager()`).
-- **Injetado em**: É passado como dependência para TODAS as páginas da interface no momento em que elas são criadas (`PaginaResumo(self.db)`, `PaginaCarteira(self.db)`, etc.). As páginas o utilizam para ler saldos, gravar transações ou ler o preço médio da carteira.
+- **Injetado em**: Todas as páginas da aplicação (`PaginaResumo`, `PaginaCarteira`, `PaginaAnalise`, `PaginaFinancas`, `PaginaRendimentos`, `PaginaConfig`).
+- **Segurança**: Quando o aplicativo é fechado, o arquivo `deven_wealth.db` gerenciado por esta classe é criptografado pelo `SecurityManager` e removido do disco.

@@ -1,14 +1,50 @@
 # Documentação: pagina_resumo.py
 
 ## Propósito
-É o componente responsável por renderizar a "Visão Geral", o painel de KPIs (Patrimônio Total e Lucro/Prejuízo) e o Gráfico de Pizza que distribui o patrimônio por classe de ativo.
+É o painel de controle principal (Dashboard) do investidor. Consolida métricas macroeconômicas de patrimônio líquido, distribuição percentual de investimentos por classe, taxa de poupança, gráficos patrimoniais e a ferramenta preditiva da **Máquina do Tempo** para projeção de independência financeira.
 
-## Como Funciona
-A classe `PaginaResumo` é um `QWidget` que funciona como o painel central do usuário.
-- **`setup_ui()`**: Monta a interface. Utiliza os layouts do PyQt6 (`QVBoxLayout`, `QHBoxLayout`) para estruturar os rótulos de KPI (Patrimônio Líquido, Taxa de Poupança e Renda Passiva). Integra nativamente a biblioteca `matplotlib` através do `FigureCanvasQTAgg` para renderizar os gráficos. Também monta os campos da **Máquina do Tempo**.
-- **`carregar_dados()`**: Faz as consultas SQL para extrair saldos e o patrimônio investido. Calcula sua média histórica de aportes (usando as transações do tipo "Construção de Riqueza") para alimentar o simulador. Atualiza os gráficos de Despesas (Rosca) e Rendimentos (Barras).
-- **`calcular_maquina_tempo()`**: Um simulador preditivo de independência financeira. Ele lê a média de aportes calculada e o patrimônio atual, cruzando com a Taxa Anual e a Meta estipuladas pelo usuário. O motor calcula os juros compostos em um loop mês a mês até que a meta seja batida, retornando exatamente o ano e o mês em que o usuário atingirá o marco.
+---
+
+## Componentes e Como Funciona
+
+### 1. KPIs de Alto Nível
+- **Patrimônio Líquido Total**: Soma do saldo atual de todas as posições em carteira (`carteira_atual` cruzado com cotações de `cache_mercado`) somado ao saldo livre acumulado.
+- **Taxa de Poupança / Aportes**: Percentual das receitas canalizadas para a categoria macro "Construção de Riqueza".
+- **Renda Passiva Mensal**: Média e somatório de dividendos e proventos recentes recebidos.
+
+---
+
+### 2. Visualizações Gráficas (Matplotlib integrado ao PyQt6)
+- **Canvas Integrado (`FigureCanvasQTAgg`)**:
+  - Renderiza gráficos com tema escuro condizente com a paleta *Catppuccin Mocha*.
+- **Gráfico de Alocação de Ativos (Donut / Pizza)**:
+  - Distribuição percentual do patrimônio por classe de ativo (Ações, FIIs, Cripto, Renda Fixa).
+  - Identifica desbalanceamentos visuais na carteira.
+- **Gráfico de Rendimentos Acumulados**:
+  - Exibe a trajetória dos proventos recebidos nos últimos meses, ilustrando o efeito da Bola de Neve.
+
+---
+
+### 3. A Máquina do Tempo (`calcular_maquina_tempo`)
+- Simulador preditivo e didático de juros compostos voltado à independência financeira:
+  - **Média Histórica de Aportes**: O sistema calcula a média mensal real de aportes do usuário com base nas transações da categoria "Construção de Riqueza".
+  - **Inputs Customizáveis**:
+    - Patrimônio Inicial (puxado automaticamente da carteira atual).
+    - Aporte Mensal estimado.
+    - Taxa de Rentabilidade Anual esperada (ex: 10% a.a.).
+    - Meta Patrimonial de Independência Financeira (ex: R$ 1.000.000,00).
+  - **Motor Matemático**:
+    - Simula mês a mês a fórmula dos juros compostos com aportes periódicos:
+      $$M_{t+1} = M_t \times (1 + i_{\text{mensal}}) + \text{Aporte}$$
+    - Determina com precisão de data o **ano e o mês exatos** em que a meta estipulada será alcançada.
+
+---
 
 ## Interligação
-- Recebe a instância do banco de dados no momento em que é instanciada no `main.py`.
-- O seu método `carregar_dados()` é exportado e enviado como *Callback* para as outras páginas (`carteira`, `financas`, `rendimentos`). Assim, se o usuário alterar os dados financeiros em qualquer lugar do app, a tela de Resumo é atualizada instantaneamente.
+- **Injeção de Dependência**: Recebe `self.db` (`DBManager`) via construtor no `main.py`.
+- **Ponto Central de Callbacks**:
+  - O método `self.carregar_dados` é exportado e injetado como callback nas páginas:
+    - `PaginaCarteira` (ao comprar ou excluir ativos).
+    - `PaginaFinancas` (ao registrar receitas ou aportes).
+    - `PaginaRendimentos` (ao confirmar novos dividendos).
+  - Qualquer alteração patrimonial no aplicativo reflete instantaneamente nos gráficos e KPIs da Visão Geral sem necessidade de reiniciar o software.

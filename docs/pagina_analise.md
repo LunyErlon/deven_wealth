@@ -1,16 +1,50 @@
 # Documentação: pagina_analise.py
 
 ## Propósito
-É o componente de "Busca de Cotações" em tempo real e serve como a porta de entrada (Catálogo) para se colocar novos ativos no banco de dados local. 
+É o componente de "Busca de Cotações" e porta de entrada (Catálogo) para inclusão de novos ativos no ecossistema local do Deven Wealth. Também gerencia o **Radar de Oportunidades**, monitorando preços-teto configurados pelo investidor contra as cotações de mercado.
 
-## Como Funciona
-A classe `PaginaAnalise(QWidget)` controla a tela de pesquisa e o Radar de Oportunidades.
-- **`setup_ui()`**: Cria uma barra de busca (`QLineEdit`) e uma label escondida para o resultado. Abaixo, renderiza a tabela interativa do **Radar de Oportunidades**.
-- **`executar_busca()`**: Pega o texto da barra de pesquisa e aciona o motor de busca na nuvem, usando `self.api.buscar_dados_ativo()`. Destrava o fluxo para que o usuário não sinta travamento na UI (`QApplication.processEvents()`). Se os dados retornarem com sucesso da API, formata o HTML e exibe o resultado na tela, mostrando o botão "Salvar".
-- **`salvar_ativo_banco()`**: Ocorre quando o usuário decide salvar a pesquisa. Ele joga as informações na tabela `ativos_catalogo` e a cotação inicial/indicadores na tabela `cache_mercado`. Atualiza automaticamente o radar.
-- **`carregar_radar()`**: Lista todos os ativos que já estão no catálogo (salvos no banco). Ele compara o Preço Atual com a coluna `preco_teto`. Se o preço atual for igual ou menor que o teto estabelecido, ele destaca a linha em verde brilhante com a flag "🎯 OPORTUNIDADE".
-- **`definir_preco_teto()`**: Um Pop-up ativado diretamente pelas linhas da tabela do Radar, permitindo que o usuário informe o valor máximo que aceita pagar por aquele ativo.
+---
+
+## Componentes e Como Funciona
+
+### 1. Barra de Pesquisa e Consulta em Tempo Real
+- **Campo de Busca (`QLineEdit`)**: O investidor digita o ticker (ex: `PETR4`, `MXRF11`, `BTC-USD`, `USDBRL=X`).
+- **Execução Desacoplada (`executar_busca`)**:
+  - Aciona o motor híbrido da `MarketAPI.buscar_dados_ativo()`.
+  - Dispara `QApplication.processEvents()` para garantir fluidez na UI sem congelamentos perceptíveis.
+  - Exibe um cartão estilizado com:
+    - **Cotação Atual**
+    - **Dividend Yield (DY %)**
+    - **P/VP (Preço sobre Valor Patrimonial)**
+    - **P/L (Preço sobre Lucro)**
+    - Nome da Empresa / Fundo e Setor de Atuação
+  - Habilita o botão **"➕ Salvar no Catálogo"**.
+
+---
+
+### 2. Persistência no Catálogo (`salvar_ativo_banco`)
+- Ao clicar em salvar:
+  - Grava os metadados estáticos na tabela `ativos_catalogo` (`ticker`, `nome`, `classe`, `setor`).
+  - Grava os indicadores financeiros em tempo real na tabela `cache_mercado` (`preco_atual`, `dy_atual`, `p_vp`, `p_l`, `ultima_atualizacao`).
+  - Aciona o callback `fn_atualizar_carteira` para que a tela de Carteira imediatamente disponibilize o novo ativo para registro de compras.
+  - Atualiza a visualização do Radar de Oportunidades.
+
+---
+
+### 3. O Radar de Oportunidades & Preço-Teto
+- **Tabela Interativa**: Lista todos os ativos já cadastrados no catálogo local.
+- **Definição de Preço-Teto (`definir_preco_teto`)**:
+  - Permite ao investidor clicar na linha do ativo e estabelecer o valor máximo que aceita pagar (baseado em valuation ou Graham/Bazin).
+  - O valor é gravado na coluna `preco_teto` da tabela `ativos_catalogo`.
+- **Destaque Visual ("🎯 OPORTUNIDADE")**:
+  - Compara continuamente `preco_atual <= preco_teto`.
+  - Se a cotação estiver abaixo ou igual ao teto, a linha da tabela é destacada com fundo em verde brilhante e o badge **"🎯 OPORTUNIDADE"**, indicando momento favorável para compra.
+
+---
 
 ## Interligação
-- Diferente de algumas páginas, esta precisa de DUAS instâncias via Injeção de Dependência em seu construtor: O `db` (para salvar os dados) e a `api` (para rodar a busca na web).
-- Recebe no construtor um gatilho *Callback* chamado `fn_atualizar_carteira`. Se o usuário salva o ativo no banco, esse callback é acionado para atualizar a tabela da página "Minha Carteira" lá no fundo, avisando que existe um novo ativo pronto para receber registro de compras.
+- **Injeção de Dependências**:
+  - `self.db` (`DBManager`): Para gravar e consultar ativos e indicadores.
+  - `self.api` (`MarketAPI`): Para executar requisições HTTP e capturar dados de mercado.
+  - `fn_atualizar_carteira`: Callback para sincronizar o catálogo com a `PaginaCarteira`.
+- **Tabelas Envolvidas**: `ativos_catalogo` e `cache_mercado`.
