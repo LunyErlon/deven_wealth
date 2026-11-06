@@ -117,3 +117,4 @@ DEVEN_WEALTH/
 
 ## 📄 Licença
 Desenvolvido por **Luny Erlon** no ecossistema **Deven**.
+
