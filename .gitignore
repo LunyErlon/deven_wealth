@@ -1,0 +1,30 @@
+# Ambientes Virtuais
+.venv/
+venv/
+ENV/
+env/
+
+# Byte-compiled / cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Bancos de dados locais e backups sensíveis
+*.db
+*.db-journal
+*.sqlite3
+*.dwb
+deven_wealth.db.enc
+gerenciador/deven_wealth.db
+
+# Logs e arquivos temporários do sistema
+*.log
+.DS_Store
+Thumbs.db
+
+# Configurações de IDEs
+.idea/
+.vscode/
+*.suo
+*.user
