@@ -63,3 +63,4 @@ O `dialog_irpf.py` implementa a classe `DialogRelatorioIRPF(QDialog)`, um módul
   - `pagina_carteira.py` (`abrir_irpf`)
   - `pagina_rendimentos.py` (`abrir_irpf`)
 - **Tabelas Consultadas**: `carteira_atual`, `ativos_catalogo` e `rendimentos`.
+
