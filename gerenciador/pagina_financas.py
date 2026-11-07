@@ -1,6 +1,11 @@
 import os
 import pandas as pd
 from ofxparse import OfxParser
+import matplotlib
+matplotlib.use('QtAgg')
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.patches as mpatches
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget, 
     QTableWidgetItem, QHeaderView, QLineEdit, QDoubleSpinBox, QComboBox, 
@@ -1250,10 +1255,35 @@ class PaginaFinancas(QWidget):
         self.tabela_financas.setHorizontalHeaderLabels(["Data", "Descrição", "Categoria", "Tipo", "Grupo", "Valor", "Excluir"])
         self.tabela_financas.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         
+        # Painel Superior: KPIs e Indicadores à Esquerda, Gráfico de Rosca 50/30/20 à Direita
+        layout_painel_cards = QHBoxLayout()
+        layout_coluna_kpis = QVBoxLayout()
+        layout_coluna_kpis.addLayout(layout_kpis)
+        layout_coluna_kpis.addLayout(layout_regra)
+        layout_painel_cards.addLayout(layout_coluna_kpis, 62)
+
+        # Frame do Gráfico de Rosca 50/30/20
+        self.frame_rosca = QFrame()
+        self.frame_rosca.setStyleSheet("background-color: #262939; border-radius: 10px; border: 1px solid #313244;")
+        layout_frame_rosca = QVBoxLayout(self.frame_rosca)
+        layout_frame_rosca.setContentsMargins(10, 8, 10, 8)
+        layout_frame_rosca.setSpacing(4)
+
+        self.lbl_titulo_rosca = QLabel("📊 Raio-X 50/30/20 do Mês")
+        self.lbl_titulo_rosca.setStyleSheet("color: #cdd6f4; font-weight: bold; font-size: 13px;")
+        layout_frame_rosca.addWidget(self.lbl_titulo_rosca)
+
+        self.fig_rosca = Figure(figsize=(3.8, 1.8), dpi=100)
+        self.fig_rosca.patch.set_facecolor('#262939')
+        self.canvas_rosca = FigureCanvas(self.fig_rosca)
+        self.canvas_rosca.setStyleSheet("background-color: transparent;")
+        layout_frame_rosca.addWidget(self.canvas_rosca)
+
+        layout_painel_cards.addWidget(self.frame_rosca, 38)
+
         layout.addWidget(titulo)
         layout.addLayout(layout_filtro)
-        layout.addLayout(layout_kpis)
-        layout.addLayout(layout_regra)
+        layout.addLayout(layout_painel_cards)
         layout.addLayout(layout_form_container)
         layout.addWidget(self.tabela_financas)
         
@@ -1461,6 +1491,84 @@ class PaginaFinancas(QWidget):
         
         self.lbl_pct_riqueza.setText(f"Construção Riqueza\n{pct_riqueza:.1f}% (Meta: > {meta_riq}%)")
         self.lbl_pct_riqueza.setStyleSheet(f"background-color: #313244; padding: 10px; border-radius: 8px; color: {cor_riq}; font-weight: bold;")
+
+        self.atualizar_grafico_rosca(gasto_necessidades, gasto_desejos, gasto_riqueza, total_despesas, total_receitas, meta_nec, meta_des, meta_riq)
+
+    def atualizar_grafico_rosca(self, gasto_nec, gasto_des, gasto_riq, total_despesas, total_receitas, meta_nec, meta_des, meta_riq):
+        self.fig_rosca.clear()
+        ax = self.fig_rosca.add_subplot(111)
+        ax.set_facecolor('#262939')
+
+        soma_categorizada = gasto_nec + gasto_des + gasto_riq
+        if total_despesas > 0:
+            labels = []
+            valores = []
+            cores = []
+
+            base_calc = total_receitas if total_receitas > 0 else total_despesas
+
+            if gasto_nec > 0:
+                pct = (gasto_nec / base_calc) * 100
+                labels.append(f"Nec: {pct:.0f}%")
+                valores.append(gasto_nec)
+                cores.append('#89b4fa')
+
+            if gasto_des > 0:
+                pct = (gasto_des / base_calc) * 100
+                labels.append(f"Des: {pct:.0f}%")
+                valores.append(gasto_des)
+                cores.append('#f9e2af')
+
+            if gasto_riq > 0:
+                pct = (gasto_riq / base_calc) * 100
+                labels.append(f"Riq: {pct:.0f}%")
+                valores.append(gasto_riq)
+                cores.append('#a6e3a1')
+
+            gasto_outros = max(0.0, total_despesas - soma_categorizada)
+            if gasto_outros > 0.01:
+                pct = (gasto_outros / base_calc) * 100
+                labels.append(f"Outros: {pct:.0f}%")
+                valores.append(gasto_outros)
+                cores.append('#cba6f7')
+
+            wedges, _ = ax.pie(
+                valores,
+                colors=cores,
+                startangle=90,
+                wedgeprops=dict(width=0.45, edgecolor='#262939', linewidth=2)
+            )
+
+            # Texto Central no buraco da rosca
+            texto_centro = f"R$ {total_despesas:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            ax.text(
+                0, 0,
+                f"Total\n{texto_centro}",
+                ha='center', va='center',
+                color='#cdd6f4',
+                fontsize=8,
+                fontweight='bold'
+            )
+
+            ax.legend(
+                wedges,
+                labels,
+                loc="center left",
+                bbox_to_anchor=(0.95, 0.5),
+                frameon=False,
+                fontsize=8,
+                labelcolor='#cdd6f4'
+            )
+        else:
+            circulo = mpatches.Circle((0, 0), 0.7, color='#313244', fill=False, linewidth=3)
+            ax.add_patch(circulo)
+            ax.text(0, 0, "Sem Despesas\nno Período", ha='center', va='center', color='#6c7086', fontsize=8)
+            ax.set_xlim(-1, 1)
+            ax.set_ylim(-1, 1)
+
+        ax.axis('equal')
+        self.fig_rosca.subplots_adjust(left=0.02, right=0.62, top=0.98, bottom=0.02)
+        self.canvas_rosca.draw()
 
     def excluir_transacao(self, id_transacao):
         resposta = QMessageBox.question(

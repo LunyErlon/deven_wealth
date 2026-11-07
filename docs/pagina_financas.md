@@ -67,10 +67,16 @@ Inclui o **Extrator Híbrido** e **O Purgatório de Transações**, viabilizando
 ---
 
 ### 5. `PaginaFinancas` (Interface Principal)
-- **KPIs do Mês**:
-  - Receitas, Despesas e Saldo Livre.
-  - **Cartões 50/30/20 Dinâmicos**: Consultam as metas personalizadas na tabela `configuracoes` (`meta_necessidades`, `meta_desejos`, `meta_riqueza`).
-  - **Cores de Alerta**: Alternam automaticamente para tom de alerta (`#f38ba8`) se o percentual de gastos em Necessidades ou Desejos exceder o teto, ou se os investimentos ficarem abaixo da meta.
+- **Painel Superior com Gráfico de Rosca 50/30/20**:
+  - **Coluna da Esquerda (KPIs e Indicadores)**:
+    - Receitas, Despesas e Saldo Livre.
+    - **Cartões 50/30/20 Dinâmicos**: Consultam as metas personalizadas na tabela `configuracoes` (`meta_necessidades`, `meta_desejos`, `meta_riqueza`).
+    - **Cores de Alerta**: Alternam automaticamente para tom de alerta (`#f38ba8`) se o percentual de gastos em Necessidades ou Desejos exceder o teto, ou se os investimentos ficarem abaixo da meta.
+  - **Coluna da Direita (Gráfico de Rosca / Donut Chart)**:
+    - Integrado via Matplotlib (`FigureCanvasQTAgg`), adaptado ao tema Catppuccin Mocha (`#262939` e `#1e1e2e`).
+    - Desenha fatias proporcionais de gastos: Necessidades (`#89b4fa`), Desejos (`#f9e2af`), Construção de Riqueza (`#a6e3a1`) e Outros (`#cba6f7`).
+    - Centro vazado com valor total monetário das despesas e legenda com percentuais calculados.
+    - Caso não haja gastos registrados no mês selecionado, renderiza anel neutro estilizado ("Sem Despesas no Período").
 - **Formulário de Inserção Manual**:
   - Data, Descrição, Categoria, Valor e o checkbox `🔁 Conta Recorrente (Repetir mensalmente)`.
 - **Tabela de Histórico**:

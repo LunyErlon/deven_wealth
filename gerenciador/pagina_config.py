@@ -229,9 +229,17 @@ class PaginaConfig(QWidget):
         btn_exportar.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_exportar.clicked.connect(self.exportar_dados_excel)
         
+        btn_relatorio_irpf = QPushButton("📑 Relatório Anual IRPF (Imposto de Renda)")
+        btn_relatorio_irpf.setMinimumWidth(230)
+        btn_relatorio_irpf.setMaximumWidth(360)
+        btn_relatorio_irpf.setStyleSheet("background-color: #fab387; color: #11111b; font-weight: bold; padding: 8px; border-radius: 4px;")
+        btn_relatorio_irpf.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_relatorio_irpf.clicked.connect(self.abrir_relatorio_irpf)
+        
         layout_backup.addWidget(btn_exportar_db, alignment=Qt.AlignmentFlag.AlignLeft)
         layout_backup.addWidget(btn_importar_db, alignment=Qt.AlignmentFlag.AlignLeft)
         layout_backup.addWidget(btn_exportar, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout_backup.addWidget(btn_relatorio_irpf, alignment=Qt.AlignmentFlag.AlignLeft)
         
         secao_backup = SecaoExpansivel("Backup de Dados", "Importe ou exporte seus dados criptografados, ou exporte uma planilha.", layout_backup)
         layout.addWidget(secao_backup)
@@ -456,6 +464,11 @@ class PaginaConfig(QWidget):
             QMessageBox.information(self, "Sucesso", "Relatório Excel exportado com sucesso em 3 abas!")
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Ocorreu um erro ao exportar: {str(e)}")
+
+    def abrir_relatorio_irpf(self):
+        from dialog_irpf import DialogRelatorioIRPF
+        dialog = DialogRelatorioIRPF(self.db, self)
+        dialog.exec()
 
     def exportar_db_seguro(self):
         caminho, _ = QFileDialog.getSaveFileName(self, "Exportar Banco de Dados", "DevenWealth_Backup.dwb", "Deven Wealth Backup (*.dwb)")

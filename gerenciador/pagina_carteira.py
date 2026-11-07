@@ -1,4 +1,9 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QDialog, QFormLayout, QDoubleSpinBox, QMessageBox
+from datetime import datetime
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget, 
+    QTableWidgetItem, QHeaderView, QDialog, QFormLayout, QDoubleSpinBox, 
+    QMessageBox, QFrame, QScrollArea, QAbstractItemView
+)
 from PyQt6.QtCore import Qt
 import qtawesome as qta
 
@@ -40,16 +45,22 @@ class DialogoRebalanceamento(QDialog):
     def __init__(self, db, parent=None):
         super().__init__(parent)
         self.db = db
-        self.setWindowTitle("Assessor Virtual - Rebalanceamento de Carteira")
-        self.setMinimumWidth(600)
+        self.parent_page = parent
+        self.compras_sugeridas = []
+        self.setWindowTitle("Assessor Virtual - Rebalanceamento Inteligente de Carteira")
+        self.resize(760, 680)
         self.setup_ui()
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
         
-        lbl_info = QLabel("Defina a % ideal para cada classe de ativo. O sistema indicará onde você deve investir seu aporte para balancear a carteira.")
+        lbl_info = QLabel(
+            "Defina as porcentagens ideais para cada classe de ativo. O algoritmo calculará exatamente onde e quanto aportar "
+            "para reequilibrar seu portfólio de forma matemática, sem vendas desnecessárias."
+        )
         lbl_info.setWordWrap(True)
-        lbl_info.setStyleSheet("color: #a6adc8; margin-bottom: 10px;")
+        lbl_info.setStyleSheet("color: #a6adc8; font-size: 13px; margin-bottom: 5px;")
         layout.addWidget(lbl_info)
         
         # Puxa o total atual por classe
@@ -68,13 +79,18 @@ class DialogoRebalanceamento(QDialog):
         todas_classes = [r['classe'] for r in res_classes]
         
         self.inputs_alvo = {}
-        form_layout = QFormLayout()
+        frame_metas = QFrame()
+        frame_metas.setStyleSheet("background-color: #262939; border-radius: 8px; padding: 10px;")
+        form_layout = QFormLayout(frame_metas)
+        form_layout.setContentsMargins(10, 8, 10, 8)
+        form_layout.setSpacing(8)
         
         for c in todas_classes:
             spin = QDoubleSpinBox()
             spin.setGroupSeparatorShown(True)
             spin.setRange(0, 100)
             spin.setSuffix("%")
+            spin.setStyleSheet("background-color: #313244; color: #cdd6f4; font-weight: bold; padding: 4px;")
             
             res_alvo = self.db.buscar_dados(f"SELECT valor FROM configuracoes WHERE chave='alvo_classe_{c}'")
             if res_alvo:
@@ -88,35 +104,104 @@ class DialogoRebalanceamento(QDialog):
             atual_pct = (atual_val / self.patrimonio_total * 100) if self.patrimonio_total > 0 else 0
             
             lbl_classe = QLabel(f"{c} (Atual: {atual_pct:.1f}% | R$ {atual_val:.2f}):")
-            lbl_classe.setStyleSheet("font-weight: bold;")
+            lbl_classe.setStyleSheet("font-weight: bold; color: #cdd6f4;")
             form_layout.addRow(lbl_classe, spin)
             
-        layout.addLayout(form_layout)
+        layout.addWidget(frame_metas)
+        
+        # --- SEÇÃO DO APORTE COM BOTÃO PUXAR SALDO LIVRE ---
+        frame_aporte = QFrame()
+        frame_aporte.setStyleSheet("background-color: #1e1e2e; border: 1px solid #313244; border-radius: 8px; padding: 10px;")
+        layout_aporte_box = QVBoxLayout(frame_aporte)
         
         layout_aporte = QHBoxLayout()
-        lbl_aporte = QLabel("Valor do Aporte Mensal Livre: R$")
-        lbl_aporte.setStyleSheet("color: #a6e3a1; font-weight: bold;")
+        lbl_aporte = QLabel("Valor do Aporte Livre: R$")
+        lbl_aporte.setStyleSheet("color: #a6e3a1; font-weight: bold; font-size: 14px;")
         layout_aporte.addWidget(lbl_aporte)
+        
         self.input_aporte = QDoubleSpinBox()
         self.input_aporte.setGroupSeparatorShown(True)
         self.input_aporte.setRange(0, 10000000)
         self.input_aporte.setDecimals(2)
-        self.input_aporte.setStyleSheet("color: #a6e3a1; font-weight: bold;")
-        layout_aporte.addWidget(self.input_aporte)
-        layout.addLayout(layout_aporte)
+        self.input_aporte.setStyleSheet("background-color: #313244; color: #a6e3a1; font-weight: bold; font-size: 15px; padding: 6px;")
+        layout_aporte.addWidget(self.input_aporte, 1)
+
+        btn_puxar_saldo = QPushButton("⚡ Puxar Saldo Livre (Finanças)")
+        btn_puxar_saldo.setStyleSheet("background-color: #fab387; color: #11111b; font-weight: bold; padding: 8px 14px; border-radius: 6px;")
+        btn_puxar_saldo.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_puxar_saldo.setToolTip("Puxar o saldo positivo não gasto das Contas Pessoais deste mês.")
+        btn_puxar_saldo.clicked.connect(self.puxar_saldo_livre_financas)
+        layout_aporte.addWidget(btn_puxar_saldo)
         
-        btn_calcular = QPushButton("Calcular Rebalanceamento")
-        btn_calcular.setStyleSheet("background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 10px; margin-top: 10px;")
+        layout_aporte_box.addLayout(layout_aporte)
+
+        btn_calcular = QPushButton("🎯 Calcular Rebalanceamento Inteligente")
+        btn_calcular.setStyleSheet("background-color: #89b4fa; color: #11111b; font-weight: bold; padding: 10px; border-radius: 6px; font-size: 14px; margin-top: 5px;")
         btn_calcular.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_calcular.clicked.connect(self.calcular_rebalanceamento)
-        layout.addWidget(btn_calcular)
+        layout_aporte_box.addWidget(btn_calcular)
+
+        layout.addWidget(frame_aporte)
+
+        # --- TABELA DE SUGESTÕES DE COMPRA ---
+        self.lbl_titulo_sugestoes = QLabel("📋 Compras Recomendadas por Ativo:")
+        self.lbl_titulo_sugestoes.setStyleSheet("color: #cdd6f4; font-weight: bold; font-size: 14px; margin-top: 5px;")
+        self.lbl_titulo_sugestoes.hide()
+        layout.addWidget(self.lbl_titulo_sugestoes)
+
+        self.tabela_sugestoes = QTableWidget()
+        self.tabela_sugestoes.setColumnCount(6)
+        self.tabela_sugestoes.setHorizontalHeaderLabels(["Ativo", "Classe", "Preço Atual", "Cotas a Comprar", "Total a Investir", "Status"])
+        self.tabela_sugestoes.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.tabela_sugestoes.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tabela_sugestoes.setStyleSheet("background-color: #262939; color: #cdd6f4; font-size: 13px;")
+        self.tabela_sugestoes.hide()
+        layout.addWidget(self.tabela_sugestoes)
         
         self.lbl_resultado = QLabel("")
         self.lbl_resultado.setWordWrap(True)
-        self.lbl_resultado.setStyleSheet("background-color: #313244; padding: 15px; border-radius: 8px; font-size: 15px; line-height: 1.5;")
+        self.lbl_resultado.setStyleSheet("background-color: #313244; padding: 10px; border-radius: 6px; font-size: 13px; color: #cdd6f4;")
         self.lbl_resultado.hide()
         layout.addWidget(self.lbl_resultado)
-        
+
+        self.btn_executar_compras = QPushButton("🚀 Lançar Compras Sugeridas na Carteira")
+        self.btn_executar_compras.setStyleSheet("background-color: #a6e3a1; color: #11111b; font-weight: bold; padding: 12px; border-radius: 6px; font-size: 14px;")
+        self.btn_executar_compras.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_executar_compras.hide()
+        self.btn_executar_compras.clicked.connect(self.executar_compras_sugeridas)
+        layout.addWidget(self.btn_executar_compras)
+
+    def puxar_saldo_livre_financas(self, mostrar_alerta=True):
+        mes_atual = datetime.now().strftime("%Y-%m")
+        query = """
+            SELECT c.tipo, t.valor 
+            FROM transacoes t
+            LEFT JOIN categorias c ON t.categoria_id = c.id
+            WHERE t.data LIKE ?
+        """
+        res = self.db.buscar_dados(query, (f"{mes_atual}-%",))
+        total_rec = sum(float(r['valor']) for r in res if r['tipo'] == 'Receita')
+        total_desp = sum(float(r['valor']) for r in res if r['tipo'] != 'Receita')
+        saldo_livre = max(0.0, total_rec - total_desp)
+
+        if saldo_livre > 0:
+            self.input_aporte.setValue(saldo_livre)
+            if mostrar_alerta:
+                QMessageBox.information(
+                    self,
+                    "Saldo Livre Localizado!",
+                    f"🎉 Saldo livre de {mes_atual} identificado nas Contas Pessoais: R$ {saldo_livre:.2f}.\n\n"
+                    "Valor inserido automaticamente no campo de aporte!"
+                )
+        else:
+            if mostrar_alerta:
+                QMessageBox.information(
+                    self,
+                    "Saldo Livre Indisponível",
+                    f"Nenhum saldo positivo restante foi encontrado nas transações do mês {mes_atual}. "
+                    "Você pode digitar manualmente o valor do aporte desejado."
+                )
+
     def calcular_rebalanceamento(self):
         soma_alvos = sum(spin.value() for spin in self.inputs_alvo.values())
         if abs(soma_alvos - 100.0) > 0.01:
@@ -144,20 +229,154 @@ class DialogoRebalanceamento(QDialog):
                 
         recomendacoes.sort(key=lambda x: x[1], reverse=True)
         
-        texto = "<b>🎯 Plano de Ação (Onde Investir seu Aporte):</b><br><br>"
+        texto_resumo = "<b>🎯 Alocação Sugerida por Classe:</b><br>"
         aporte_restante = aporte
+        self.compras_sugeridas = []
         
         for c, dif in recomendacoes:
             if aporte_restante <= 0:
                 break
-            valor_aportar = min(dif, aporte_restante)
-            texto += f"• Compre <b>R$ {valor_aportar:.2f}</b> em ativos da classe <b>{c}</b><br>"
-            aporte_restante -= valor_aportar
-            
+            valor_aportar_classe = min(dif, aporte_restante)
+            texto_resumo += f"• <b>{c}</b>: Aportar <b>R$ {valor_aportar_classe:.2f}</b><br>"
+            aporte_restante -= valor_aportar_classe
+
+            # Busca os ativos cadastrados desta classe
+            query_ativos = """
+                SELECT a.ticker, a.classe, IFNULL(a.preco_teto, 999999) as preco_teto,
+                       IFNULL(cart.quantidade_total, 0) as qtd_atual,
+                       IFNULL(cart.preco_medio, 0) as pm_atual,
+                       IFNULL(cm.preco_atual, 0) as preco_atual
+                FROM ativos_catalogo a
+                LEFT JOIN carteira_atual cart ON a.ticker = cart.ticker_id
+                JOIN cache_mercado cm ON a.ticker = cm.ticker_id
+                WHERE a.classe = ? AND cm.preco_atual > 0
+                ORDER BY (IFNULL(cart.quantidade_total, 0) * cm.preco_atual) ASC
+            """
+            ativos_classe = self.db.buscar_dados(query_ativos, (c,))
+            if not ativos_classe:
+                continue
+
+            saldo_classe_restante = valor_aportar_classe
+            for ativo in ativos_classe:
+                if saldo_classe_restante <= 0:
+                    break
+                p_atual = float(ativo['preco_atual'])
+                if p_atual <= 0:
+                    continue
+
+                # Criptos aceitam fracionário; ações e FIIs usam cotas inteiras
+                eh_cripto = (c.upper() in ["CRIPTO", "CRIPTOMOEDAS", "CRIPTOMOEDA", "MOEDA", "MOEDAS"])
+                if eh_cripto:
+                    cotas = round(saldo_classe_restante / p_atual, 4)
+                else:
+                    cotas = int(saldo_classe_restante / p_atual)
+
+                if cotas > 0:
+                    gasto_ativo = round(cotas * p_atual, 2)
+                    saldo_classe_restante -= gasto_ativo
+                    
+                    status = "🎯 Abaixo do Teto" if p_atual <= float(ativo['preco_teto']) else "Preço de Mercado"
+                    self.compras_sugeridas.append({
+                        "ticker": ativo['ticker'],
+                        "classe": ativo['classe'],
+                        "preco_atual": p_atual,
+                        "cotas": cotas,
+                        "total_gasto": gasto_ativo,
+                        "qtd_atual": float(ativo['qtd_atual']),
+                        "pm_atual": float(ativo['pm_atual']),
+                        "status": status
+                    })
+
         if aporte_restante > 0:
-            texto += f"<br><span style='color: #f9e2af;'>Você ainda tem R$ {aporte_restante:.2f} livres após equilibrar as metas. Reinvista nos seus melhores ativos!</span>"
+            texto_resumo += f"<br><span style='color: #f9e2af;'>Restante livre: R$ {aporte_restante:.2f} após equilibrar as metas de classe.</span>"
+
+        # Popula a tabela de compras sugeridas
+        self.tabela_sugestoes.setRowCount(0)
+        for i, s in enumerate(self.compras_sugeridas):
+            self.tabela_sugestoes.insertRow(i)
+            self.tabela_sugestoes.setItem(i, 0, QTableWidgetItem(s['ticker']))
+            self.tabela_sugestoes.setItem(i, 1, QTableWidgetItem(s['classe']))
+            self.tabela_sugestoes.setItem(i, 2, QTableWidgetItem(f"R$ {s['preco_atual']:.2f}"))
             
-        self.lbl_resultado.setText(texto)
+            fmt_cotas = f"{s['cotas']:.4f}" if isinstance(s['cotas'], float) else f"{s['cotas']}"
+            self.tabela_sugestoes.setItem(i, 3, QTableWidgetItem(fmt_cotas))
+            self.tabela_sugestoes.setItem(i, 4, QTableWidgetItem(f"R$ {s['total_gasto']:.2f}"))
+            
+            item_status = QTableWidgetItem(s['status'])
+            if "🎯" in s['status']:
+                item_status.setForeground(Qt.GlobalColor.green)
+            self.tabela_sugestoes.setItem(i, 5, item_status)
+
+        self.lbl_resultado.setText(texto_resumo)
+        self.lbl_resultado.show()
+        
+        if self.compras_sugeridas:
+            self.lbl_titulo_sugestoes.show()
+            self.tabela_sugestoes.show()
+            self.btn_executar_compras.show()
+        else:
+            self.lbl_titulo_sugestoes.hide()
+            self.tabela_sugestoes.hide()
+            self.btn_executar_compras.hide()
+
+    def executar_compras_sugeridas(self):
+        if not self.compras_sugeridas:
+            return
+
+        total_geral = sum(s['total_gasto'] for s in self.compras_sugeridas)
+        msg = (
+            f"Deseja registrar automaticamente essas {len(self.compras_sugeridas)} compra(s) sugeridas "
+            f"somando R$ {total_geral:.2f} no seu portfólio?\n\n"
+            "O Preço Médio e as quantidades serão recalculados com precisão."
+        )
+        resposta = QMessageBox.question(
+            self,
+            "Confirmar Rebalanceamento Automatizado",
+            msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if resposta != QMessageBox.StandardButton.Yes:
+            return
+
+        hoje_str = datetime.now().strftime("%Y-%m-%d")
+        cat_aporte = self.db.buscar_dados("SELECT id FROM categorias WHERE nome = 'Aportes em Investimentos'")
+        cat_id = cat_aporte[0]['id'] if cat_aporte else None
+
+        for s in self.compras_sugeridas:
+            ticker = s['ticker']
+            qtd_comprada = s['cotas']
+            preco_pago = s['preco_atual']
+            qtd_antiga = s['qtd_atual']
+            pm_antigo = s['pm_atual']
+
+            nova_qtd = qtd_antiga + qtd_comprada
+            novo_pm = ((qtd_antiga * pm_antigo) + (qtd_comprada * preco_pago)) / nova_qtd
+
+            # Atualiza carteira
+            self.db.executar_query(
+                "INSERT OR REPLACE INTO carteira_atual (ticker_id, quantidade_total, preco_medio) VALUES (?, ?, ?)",
+                (ticker, nova_qtd, novo_pm)
+            )
+
+            # Opcional: registra saída nas finanças se categoria de Aportes existir
+            if cat_id:
+                self.db.executar_query(
+                    "INSERT INTO transacoes (data, descricao, valor, categoria_id, origem, recorrente) VALUES (?, ?, ?, ?, 'Rebalanceador', 0)",
+                    (hoje_str, f"Aporte Automatizado: {ticker} ({qtd_comprada} cotas)", s['total_gasto'], cat_id)
+                )
+
+        QMessageBox.information(
+            self,
+            "Rebalanceamento Concluído!",
+            f"🎉 Sucesso!\n\nForam adquiridos os ativos sugeridos, seu Preço Médio foi atualizado e sua carteira agora está perfeitamente rebalanceada!"
+        )
+
+        if self.parent_page:
+            self.parent_page.carregar_dados()
+            if self.parent_page.fn_atualizar_resumo:
+                self.parent_page.fn_atualizar_resumo()
+
+        self.accept()
         self.lbl_resultado.show()
 
 class PaginaCarteira(QWidget):
@@ -186,8 +405,14 @@ class PaginaCarteira(QWidget):
         self.btn_rebalancear.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_rebalancear.clicked.connect(self.abrir_rebalanceamento)
         
+        self.btn_irpf = QPushButton("📑 Declaração IRPF")
+        self.btn_irpf.setStyleSheet("background-color: #fab387; color: #11111b; font-weight: bold; padding: 10px; border-radius: 5px;")
+        self.btn_irpf.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_irpf.clicked.connect(self.abrir_irpf)
+        
         layout_acoes.addWidget(self.btn_registrar_compra)
         layout_acoes.addWidget(self.btn_rebalancear)
+        layout_acoes.addWidget(self.btn_irpf)
         layout_acoes.addStretch() # Empurra os botões pra esquerda
         
         self.tabela_carteira = QTableWidget()
@@ -310,4 +535,9 @@ class PaginaCarteira(QWidget):
 
     def abrir_rebalanceamento(self):
         dialogo = DialogoRebalanceamento(self.db, self)
+        dialogo.exec()
+
+    def abrir_irpf(self):
+        from dialog_irpf import DialogRelatorioIRPF
+        dialogo = DialogRelatorioIRPF(self.db, self)
         dialogo.exec()

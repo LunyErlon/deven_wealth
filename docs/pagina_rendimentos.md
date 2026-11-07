@@ -31,8 +31,9 @@ Inclui o **Radar Automático de Dividendos**, que realiza o cruzamento de dados 
 ---
 
 ### 3. `PaginaRendimentos` (Interface Principal)
-- **Cabeçalho com Botão do Radar**:
-  - Contém o botão `🔍 Escanear Radar de Dividendos`, que ativa o método `escanear_radar_manual()` mostrando feedback visual e abrindo o pop-up com as novidades da B3.
+- **Cabeçalho com Botões de Ação**:
+  - `🔍 Escanear Radar de Dividendos`: Ativa o método `escanear_radar_manual()` mostrando feedback visual e abrindo o pop-up com as novidades da B3.
+  - `📑 Informes IRPF`: Abre diretamente o Relatório Auxiliar de Imposto de Renda com foco nos Rendimentos Isentos (dividendos/FIIs) e Tributação Exclusiva (JCP).
 - **Formulário de Entrada Manual**:
   - Combo de ativos alimentado exclusivamente pelos ativos presentes em `carteira_atual`.
   - Data de pagamento (`QDateEdit` com calendário).

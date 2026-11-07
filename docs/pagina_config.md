@@ -12,6 +12,7 @@ A classe `PaginaConfig(QWidget)` oferece diversas funções de gerenciamento:
   - **Aba 1 ("Minha Carteira")**: Dados da carteira atual (Ativo, Classe, Setor, Quantidade, Preços e Saldos).
   - **Aba 2 ("Contas Pessoais")**: Histórico de transações financeiras com suas respectivas categorias e grupos.
   - **Aba 3 ("Renda Passiva")**: Histórico de recebimento de dividendos e proventos.
+- **`abrir_relatorio_irpf()`**: Abre a interface especializada do **Relatório Auxiliar de Imposto de Renda (IRPF)** com discriminação oficial de Bens e Direitos por custo de aquisição, rendimentos isentos, JCP e exportação do Caderno IRPF em Excel.
 - **`exportar_db_seguro()`** e **`importar_db_seguro()`**: Permitem a criação e restauração de backups completos do banco de dados (arquivos `.dwb`), protegidos por criptografia simétrica (Fernet) derivada da senha mestra do usuário.
 - **`zerar_banco_dados()`**: Roda o comando SQL `DELETE FROM [tabela]` em TODAS as 5 tabelas ativas do sistema, mantendo as colunas/estruturas ativas, mas esvaziando todas as linhas. Apenas no final, ele chama o gatilho `fn_reset_db`.
 - **UI/UX Aprimorada**: A tela de configurações utiliza um `QScrollArea` para adaptar-se dinamicamente quando as seções expansíveis (Sanfonas) são abertas. Os campos de entrada (nome, token, metas) possuem restrições de largura para não esticarem e validação de tamanho máximo, além de um validador de senha reativo (`validar_regras_senha_ui`) que dá feedback visual em tempo real sobre os requisitos de segurança.

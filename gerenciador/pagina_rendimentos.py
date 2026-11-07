@@ -398,6 +398,15 @@ class PaginaRendimentos(QWidget):
         lbl_titulo = QLabel("Rendimentos / Renda Passiva")
         lbl_titulo.setObjectName("tituloPagina")
 
+        self.btn_irpf = QPushButton("📑 Informes IRPF")
+        self.btn_irpf.setStyleSheet(
+            "background-color: #fab387; color: #11111b; font-weight: bold; "
+            "padding: 7px 16px; border-radius: 6px; font-size: 13px;"
+        )
+        self.btn_irpf.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_irpf.setToolTip("Abrir Relatório Auxiliar de Imposto de Renda (Proventos e Rendimentos)")
+        self.btn_irpf.clicked.connect(self.abrir_irpf)
+
         self.btn_radar = QPushButton("🔍 Escanear Radar de Dividendos")
         self.btn_radar.setStyleSheet(
             "background-color: #89b4fa; color: #11111b; font-weight: bold; "
@@ -409,6 +418,7 @@ class PaginaRendimentos(QWidget):
 
         layout_cabecalho.addWidget(lbl_titulo)
         layout_cabecalho.addStretch()
+        layout_cabecalho.addWidget(self.btn_irpf)
         layout_cabecalho.addWidget(self.btn_radar)
         layout.addLayout(layout_cabecalho)
 
@@ -712,3 +722,8 @@ class PaginaRendimentos(QWidget):
             self.atualizar_historico_e_grafico()
             if callable(self.fn_atualizar_resumo):
                 self.fn_atualizar_resumo()
+
+    def abrir_irpf(self):
+        from dialog_irpf import DialogRelatorioIRPF
+        dialog = DialogRelatorioIRPF(self.db, self)
+        dialog.exec()
