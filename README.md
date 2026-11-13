@@ -41,6 +41,11 @@ O **Deven Wealth** é uma aplicação desktop desenvolvida em Python e PyQt6 com
 - **Autenticação Segura:** Verificação contra senhas padrão e hashes protegidos com Salt aleatório.
 - **Exportação Multiformato:** Exportação segura em `.xlsx` (com 3 abas: "Minha Carteira", "Contas Pessoais" e "Renda Passiva") e backup cifrado `.dwb`.
 
+### 7. 🚀 Notificações de Atualização (Auto-Update Checker)
+- **Verificação Assíncrona Silenciosa:** Consulta em segundo plano as releases oficiais no GitHub sem travar a interface.
+- **Aviso Não-Intrusivo:** Pílula sutil no menu lateral indicando a existência de novas versões com Changelog interativo e link direto para download.
+- **Guia de Releases:** Documentação com o passo a passo completo para lançar novas versões em [docs/update_checker.md](file:///g:/deven_wealth/docs/update_checker.md).
+
 ---
 
 ## 🛠️ Tecnologias Utilizadas
@@ -60,8 +65,8 @@ O **Deven Wealth** é uma aplicação desktop desenvolvida em Python e PyQt6 com
 
 ### 1. Clonar o Repositório
 ```bash
-git clone https://github.com/LunyErlon/LunyErlon.git
-cd LunyErlon/DEVEN_WEALTH
+git clone https://github.com/LunyErlon/deven_wealth.git
+cd deven_wealth
 ```
 
 ### 2. Criar e Ativar o Ambiente Virtual

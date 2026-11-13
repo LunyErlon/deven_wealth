@@ -41,3 +41,43 @@ Modal interativo moderno estilizado no tema Catppuccin Mocha (`#1e1e2e`, `#31324
 
 ### Nas Configurações (`pagina_config.py`)
 - O botão `"🚀 Verificar Atualizações do Deven Wealth"` na seção de Backup e Sistema permite ao usuário forçar uma verificação manual a qualquer momento, recebendo feedback visual imediato.
+
+---
+
+## 🚀 Como Lançar uma Nova Versão no Futuro (Passo a Passo)
+
+Siga este roteiro simples sempre que desenvolver novidades ou correções e desejar que o aplicativo notifique os usuários automaticamente:
+
+### 1. Atualizar a Versão no Código
+No arquivo [gerenciador/update_checker.py](file:///g:/deven_wealth/gerenciador/update_checker.py#L11), altere a constante para a nova numeração SemVer:
+```python
+VERSAO_ATUAL = "0.3.0"  # Exemplo de nova versão
+```
+
+### 2. Comitar e Enviar para o GitHub
+Envie as alterações para a branch principal (`main`):
+```bash
+git add .
+git commit -m "chore: bump version to v0.3.0"
+git push origin main
+```
+
+### 3. Publicar a Release no Repositório do GitHub
+1. Acesse o repositório oficial no navegador: [github.com/LunyErlon/deven_wealth](https://github.com/LunyErlon/deven_wealth)
+2. Na lateral direita da página inicial, clique em **Releases** (ou acesse diretamente `/releases`).
+3. Clique no botão **"Draft a new release"**.
+4. Configure os campos da release:
+   - **Choose a tag**: Digite a tag correspondente com `v` (ex: `v0.3.0`) e clique em *Create new tag on publish*.
+   - **Target**: Mantenha selecionado `main`.
+   - **Release title**: Dê um título claro e atrativo (ex: `Deven Wealth v0.3.0 - Gráficos 50/30/20 & Relatório IRPF`).
+   - **Describe this release**: Digite as novidades e melhorias em Markdown (itens com marcadores `- `, novidades, correções). Este texto será exibido dentro do pop-up do programa!
+   - *(Opcional)*: Se tiver gerado um executável empacotado (`.exe` ou `.zip`), arraste o arquivo para a área de anexos (*Attach binaries*).
+5. Clique no botão verde **"Publish release"**.
+
+---
+
+## 🎯 Resultado no Aplicativo dos Usuários
+- Ao abrir o **Deven Wealth**, após 2,5 segundos o motor assíncrono consultará a API de releases.
+- O sistema identificará que a versão remota (`0.3.0`) é maior que a versão local (`0.2.0`).
+- A pílula com gradiente dourado/pêssego **`🚀 Atualização v0.3.0 Disponível!`** aparecerá suavemente no menu lateral.
+- Ao clicar, o usuário verá o Changelog digitado no GitHub e poderá clicar em **"🌐 Baixar Atualização no GitHub"** para baixar o instalador ou novidades diretamente!
