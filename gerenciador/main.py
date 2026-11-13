@@ -14,6 +14,19 @@ from pagina_config import PaginaConfig
 from pagina_login import LoginWindow
 from security_manager import SecurityManager
 from update_checker import WorkerVerificadorUpdates, DialogAtualizacao, VERSAO_ATUAL
+import os
+
+def obter_diretorio_base():
+    """
+    Retorna o diretório base correto para localização de assets e recursos,
+    funcionando perfeitamente tanto em modo script quanto empacotado em executável (.exe) via PyInstaller.
+    """
+    if getattr(sys, 'frozen', False):
+        base = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        if not os.path.exists(os.path.join(base, "assets")) and os.path.exists(os.path.join(base, "gerenciador", "assets")):
+            base = os.path.join(base, "gerenciador")
+        return base
+    return os.path.dirname(os.path.abspath(__file__))
 
 class DevenWealthWindow(QMainWindow):
     def __init__(self, senha_mestra, token_brapi=None, nome_usuario=None):
@@ -70,9 +83,8 @@ class DevenWealthWindow(QMainWindow):
         self.layout_logo_principal.setSpacing(10)
         self.layout_logo_principal.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        import os
         from PyQt6.QtGui import QPixmap
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = obter_diretorio_base()
 
         self.icon_principal = QLabel()
         path_principal = os.path.join(base_dir, "assets", "Logo_Principal.png")
@@ -529,8 +541,7 @@ class DevenWealthWindow(QMainWindow):
         }
 
         """
-        import os
-        base_dir = os.path.dirname(os.path.abspath(__file__)).replace('\\', '/')
+        base_dir = obter_diretorio_base().replace('\\', '/')
         estilo_qss = estilo_qss.replace('url("assets/', f'url("{base_dir}/assets/')
         
         app_inst = QApplication.instance()
