@@ -2,7 +2,7 @@ import yfinance as yf
 import requests
 
 class MarketAPI:
-    def __init__(self, token_brapi="vJWHngSwHyWb3AYgQuKKC5"):
+    def __init__(self, token_brapi=""):
         self.token_brapi = token_brapi
         self.url_base_brapi = "https://brapi.dev/api/quote"
 

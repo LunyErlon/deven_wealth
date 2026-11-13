@@ -126,12 +126,15 @@ class DialogRadarDividendos(QDialog):
         ativos_unicos = sorted(list(set(d['ticker_curto'] for d in self.dividendos_detectados)))
         lista_ativos_str = ", ".join(ativos_unicos)
 
+        res_nome = self.db.buscar_dados("SELECT valor FROM configuracoes WHERE chave='perfil_nome'")
+        nome_usuario = res_nome[0]['valor'] if res_nome and res_nome[0]['valor'] else "Investidor"
+
         # 1. Cabeçalho de Boas-Vindas
         lbl_titulo = QLabel("🎉 Radar da B3: Novos Pagamentos de Proventos!")
         lbl_titulo.setStyleSheet("font-size: 20px; font-weight: bold; color: #a6e3a1;")
 
         lbl_saudacao = QLabel(
-            f"Olá, Luny! Boas notícias: o Radar da B3 identificou <b>{len(self.dividendos_detectados)} pagamento(s) recente(s)</b> "
+            f"Olá, {nome_usuario}! Boas notícias: o Radar da B3 identificou <b>{len(self.dividendos_detectados)} pagamento(s) recente(s)</b> "
             f"para os ativos da sua carteira (<b>{lista_ativos_str}</b>). Deseja conferir e registrar agora?"
         )
         lbl_saudacao.setStyleSheet("color: #cdd6f4; font-size: 14px;")

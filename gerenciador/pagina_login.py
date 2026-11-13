@@ -152,4 +152,4 @@ class LoginWindow(QWidget):
         
         # Descriptografa pra abrir e passar o controle
         SecurityManager.descriptografar_banco(senha)
-        self.fn_login_sucesso(senha, token)
+        self.fn_login_sucesso(senha, token, nome)

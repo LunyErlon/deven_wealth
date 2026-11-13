@@ -788,12 +788,15 @@ class DialogBoasVindasRecorrentes(QDialog):
 
         total_inicial = sum(float(c['valor']) for c in self.contas_pendentes)
 
+        res_nome = self.db.buscar_dados("SELECT valor FROM configuracoes WHERE chave='perfil_nome'")
+        nome_usuario = res_nome[0]['valor'] if res_nome and res_nome[0]['valor'] else "Investidor"
+
         # 1. Cabeçalho de Boas-Vindas
         lbl_titulo = QLabel("🔁 Assistente de Início: Contas Recorrentes")
         lbl_titulo.setStyleSheet("font-size: 20px; font-weight: bold; color: #fab387;")
 
         lbl_saudacao = QLabel(
-            f"Olá, Luny! Iniciamos um novo mês (<b>{nome_mes_atual}</b>). "
+            f"Olá, {nome_usuario}! Iniciamos um novo mês (<b>{nome_mes_atual}</b>). "
             f"Encontrei <b>{len(self.contas_pendentes)} conta(s) recorrente(s)</b> (R$ {total_inicial:.2f}) de {nome_mes_passado}. "
             "Deseja lançá-las agora?"
         )

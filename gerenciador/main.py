@@ -16,22 +16,26 @@ from security_manager import SecurityManager
 from update_checker import WorkerVerificadorUpdates, DialogAtualizacao, VERSAO_ATUAL
 
 class DevenWealthWindow(QMainWindow):
-    def __init__(self, senha_mestra, token_brapi=None):
+    def __init__(self, senha_mestra, token_brapi=None, nome_usuario=None):
         super().__init__()
         self.senha_mestra = senha_mestra
 
         # INICIAMOS O MOTOR
-        self.api = MarketAPI(token_brapi="vJWHngSwHyWb3AYgQuKKC5") # Padrao provisório
+        self.api = MarketAPI(token_brapi="")
         self.db = DBManager()
         self.inicializar_banco_dados()
         
+        # Gerenciamento de Nome de Usuário (Perfil)
+        if nome_usuario:
+            self.db.executar_query("INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (?, ?)", ("perfil_nome", nome_usuario))
+
         # Gerenciamento de Token
         if token_brapi:
             self.db.executar_query("INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (?, ?)", ("token_brapi", token_brapi))
             self.api.token_brapi = token_brapi
         else:
             res_token = self.db.buscar_dados("SELECT valor FROM configuracoes WHERE chave='token_brapi'")
-            if res_token:
+            if res_token and res_token[0]['valor']:
                 self.api.token_brapi = res_token[0]['valor']
         
         # Configurações da Janela Principal
@@ -672,9 +676,9 @@ class Launcher:
         self.login_window = LoginWindow(self.iniciar_app)
         self.login_window.show()
 
-    def iniciar_app(self, senha, token_brapi=None):
+    def iniciar_app(self, senha, token_brapi=None, nome_usuario=None):
         self.login_window.close()
-        self.main_window = DevenWealthWindow(senha, token_brapi)
+        self.main_window = DevenWealthWindow(senha, token_brapi, nome_usuario)
         self.main_window.show()
 
 if __name__ == "__main__":
