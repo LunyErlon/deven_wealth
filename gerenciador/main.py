@@ -13,6 +13,7 @@ from pagina_rendimentos import PaginaRendimentos
 from pagina_config import PaginaConfig
 from pagina_login import LoginWindow
 from security_manager import SecurityManager
+from update_checker import WorkerVerificadorUpdates, DialogAtualizacao, VERSAO_ATUAL
 
 class DevenWealthWindow(QMainWindow):
     def __init__(self, senha_mestra, token_brapi=None):
@@ -34,7 +35,7 @@ class DevenWealthWindow(QMainWindow):
                 self.api.token_brapi = res_token[0]['valor']
         
         # Configurações da Janela Principal
-        self.setWindowTitle("Deven Wealth - Dashboard v0.2.0")
+        self.setWindowTitle(f"Deven Wealth - Dashboard v{VERSAO_ATUAL}")
         self.resize(1100, 700)
         
         # O Widget Central
@@ -141,9 +142,33 @@ class DevenWealthWindow(QMainWindow):
         self.btn_financas.clicked.connect(self.abrir_tela_financas)
         self.btn_config.clicked.connect(lambda: self.stack.setCurrentIndex(5))
         
+        # Pílula de Atualização Disponível (UI/UX Opção A)
+        self.btn_update = QPushButton("🚀 Nova Versão Disponível!")
+        self.btn_update.setObjectName("btnUpdateDisponivel")
+        self.btn_update.setStyleSheet("""
+            QPushButton#btnUpdateDisponivel {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #fab387, stop:1 #f9e2af);
+                color: #11111b;
+                font-weight: bold;
+                font-size: 11px;
+                padding: 8px 10px;
+                border-radius: 6px;
+                border: none;
+                margin-top: 10px;
+            }
+            QPushButton#btnUpdateDisponivel:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #f9e2af, stop:1 #fab387);
+            }
+        """)
+        self.btn_update.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_update.hide()
+        self.btn_update.clicked.connect(self.abrir_dialogo_update)
+        self.layout_menu.addWidget(self.btn_update)
+        self.dados_update_disponivel = None
+
         # Rodapé no menu lateral
-        self.layout_menu.addSpacing(20)
-        self.rodape = QLabel("Criado pela DEVEN")
+        self.layout_menu.addSpacing(10)
+        self.rodape = QLabel(f"Deven Wealth v{VERSAO_ATUAL} • DEVEN")
         self.rodape.setObjectName("rodape")
         self.rodape.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.rodape.setFixedHeight(25)
@@ -166,6 +191,9 @@ class DevenWealthWindow(QMainWindow):
 
         # Agendamento suave do Radar de Dividendos em segundo plano (QThread)
         QTimer.singleShot(1200, self.iniciar_radar_dividendos_background)
+
+        # Agendamento suave da checagem de atualizações no GitHub (QThread)
+        QTimer.singleShot(2500, self.iniciar_verificacao_updates)
 
     def atualizar_menu(self, index):
         import qtawesome as qta
@@ -605,6 +633,33 @@ class DevenWealthWindow(QMainWindow):
             fn_atualizar_resumo=self.pagina_resumo.carregar_dados,
             parent=self
         )
+        dialog.exec()
+
+    def iniciar_verificacao_updates(self):
+        """
+        Dispara a checagem assíncrona de releases no GitHub em segundo plano (QThread).
+        """
+        try:
+            self.worker_update = WorkerVerificadorUpdates(versao_atual=VERSAO_ATUAL, parent=self)
+            self.worker_update.nova_versao_detectada.connect(self.ao_detectar_nova_versao)
+            self.worker_update.start()
+        except Exception as e:
+            print(f"Aviso Update Checker: {e}")
+
+    def ao_detectar_nova_versao(self, dados_update):
+        """
+        UI/UX Opção A: Exibe a pílula sutil no rodapé do menu lateral.
+        """
+        self.dados_update_disponivel = dados_update
+        versao = dados_update.get("versao", "")
+        self.btn_update.setText(f"🚀 Atualização v{versao} Disponível!")
+        self.btn_update.setToolTip(f"Clique para ver as novidades e baixar a versão {versao} no GitHub")
+        self.btn_update.show()
+
+    def abrir_dialogo_update(self):
+        if not self.dados_update_disponivel:
+            return
+        dialog = DialogAtualizacao(self.dados_update_disponivel, parent=self)
         dialog.exec()
 
     def closeEvent(self, event):

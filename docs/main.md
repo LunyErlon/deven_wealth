@@ -33,6 +33,9 @@ Para garantir que a janela principal abra instantaneamente e sem travamentos per
   - Agendado via `QTimer.singleShot(1200, ...)` para não disputar I/O com a inicialização.
   - Instancia a `WorkerRadarDividendos(QThread)` em processo paralelo.
   - Se houver proventos recentes para os ativos em custódia, o slot `ao_detectar_dividendos_background()` abre o `DialogRadarDividendos` permitindo a validação da Data-Com.
+- **Verificador de Atualizações Assíncrono (`iniciar_verificacao_updates`)**:
+  - Agendado via `QTimer.singleShot(2500, ...)` para checagem silenciosa e não intrusiva de novas versões no GitHub Releases (`WorkerVerificadorUpdates`).
+  - Se houver nova versão, exibe a pílula interativa na barra lateral (`"🚀 Atualização vX.Y.Z Disponível!"`) que abre o `DialogAtualizacao` com o Changelog.
 
 ---
 

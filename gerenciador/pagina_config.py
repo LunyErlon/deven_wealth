@@ -236,10 +236,18 @@ class PaginaConfig(QWidget):
         btn_relatorio_irpf.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_relatorio_irpf.clicked.connect(self.abrir_relatorio_irpf)
         
+        btn_verificar_update = QPushButton("🚀 Verificar Atualizações do Deven Wealth")
+        btn_verificar_update.setMinimumWidth(230)
+        btn_verificar_update.setMaximumWidth(360)
+        btn_verificar_update.setStyleSheet("background-color: #cba6f7; color: #11111b; font-weight: bold; padding: 8px; border-radius: 4px;")
+        btn_verificar_update.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_verificar_update.clicked.connect(self.verificar_atualizacao_manual)
+        
         layout_backup.addWidget(btn_exportar_db, alignment=Qt.AlignmentFlag.AlignLeft)
         layout_backup.addWidget(btn_importar_db, alignment=Qt.AlignmentFlag.AlignLeft)
         layout_backup.addWidget(btn_exportar, alignment=Qt.AlignmentFlag.AlignLeft)
         layout_backup.addWidget(btn_relatorio_irpf, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout_backup.addWidget(btn_verificar_update, alignment=Qt.AlignmentFlag.AlignLeft)
         
         secao_backup = SecaoExpansivel("Backup de Dados", "Importe ou exporte seus dados criptografados, ou exporte uma planilha.", layout_backup)
         layout.addWidget(secao_backup)
@@ -469,6 +477,23 @@ class PaginaConfig(QWidget):
         from dialog_irpf import DialogRelatorioIRPF
         dialog = DialogRelatorioIRPF(self.db, self)
         dialog.exec()
+
+    def verificar_atualizacao_manual(self):
+        from update_checker import WorkerVerificadorUpdates, DialogAtualizacao, VERSAO_ATUAL
+        
+        self.worker_update_manual = WorkerVerificadorUpdates(versao_atual=VERSAO_ATUAL, parent=self)
+        
+        def ao_finalizar(tem_nova, mensagem):
+            if not tem_nova:
+                QMessageBox.information(self, "Verificação de Atualização", f"ℹ️ {mensagem}")
+
+        def ao_detectar(dados):
+            dialog = DialogAtualizacao(dados, parent=self)
+            dialog.exec()
+
+        self.worker_update_manual.nova_versao_detectada.connect(ao_detectar)
+        self.worker_update_manual.verificacao_finalizada.connect(ao_finalizar)
+        self.worker_update_manual.start()
 
     def exportar_db_seguro(self):
         caminho, _ = QFileDialog.getSaveFileName(self, "Exportar Banco de Dados", "DevenWealth_Backup.dwb", "Deven Wealth Backup (*.dwb)")
