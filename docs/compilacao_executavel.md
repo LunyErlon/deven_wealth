@@ -66,3 +66,4 @@ python -m PyInstaller --clean --noconsole --name "DevenWealth" `
 3. Renomeie o arquivo gerado para algo como `DevenWealth-v0.2.0-Windows.zip`.
 4. No GitHub, vá na sua release e anexe o arquivo `.zip` na seção de **Assets**.
 5. Qualquer pessoa só precisará baixar o `.zip`, descompactar e dar dois cliques em `DevenWealth.exe`!
+

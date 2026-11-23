@@ -1,4 +1,4 @@
-﻿# ========================================================
+# ========================================================
 #   DEVEN WEALTH - Script de Compilação Automática (.exe)
 # ========================================================
 
@@ -31,3 +31,4 @@ if ($LASTEXITCODE -eq 0) {
 } else {
     Write-Host "`n[ERRO] Ocorreu uma falha durante a compilação." -ForegroundColor Red
 }
+
