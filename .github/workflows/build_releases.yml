@@ -5,10 +5,15 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Compilar para ${{ matrix.os-name }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -92,6 +97,12 @@ jobs:
             zip -r -y ../DevenWealth-macOS.zip DevenWealth
           fi
           cd ..
+
+      - name: Salvar Artefato no GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}
 
       - name: Anexar na Release do GitHub
         if: github.event_name == 'release'
