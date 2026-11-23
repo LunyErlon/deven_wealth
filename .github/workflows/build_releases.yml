@@ -1,0 +1,102 @@
+name: Build Multiplataforma (Windows, Linux, macOS)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compilar para ${{ matrix.os-name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            os-name: Windows
+            artifact-name: DevenWealth-Windows.zip
+          - os: ubuntu-latest
+            os-name: Linux
+            artifact-name: DevenWealth-Linux.tar.gz
+          - os: macos-latest
+            os-name: macOS
+            artifact-name: DevenWealth-macOS.zip
+
+    steps:
+      - name: Baixar Código-Fonte
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Instalar Dependências e PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # Compilação Windows
+      - name: Compilar no Windows (.exe)
+        if: runner.os == 'Windows'
+        run: |
+          python -m PyInstaller --clean --noconsole --name "DevenWealth" `
+            --icon "gerenciador/assets/Logo_Principal.png" `
+            --add-data "gerenciador/assets;assets" `
+            --hidden-import "packaging.version" `
+            --hidden-import "openpyxl" `
+            --hidden-import "matplotlib.backends.backend_qtagg" `
+            --hidden-import "ofxparse" `
+            --hidden-import "yfinance" `
+            --collect-all "qtawesome" `
+            gerenciador/main.py
+          Compress-Archive -Path "dist/DevenWealth" -DestinationPath "DevenWealth-Windows.zip"
+
+      # Compilação Linux
+      - name: Compilar no Linux (Binário ELF)
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m PyInstaller --clean --noconsole --name "DevenWealth" \
+            --add-data "gerenciador/assets:assets" \
+            --hidden-import "packaging.version" \
+            --hidden-import "openpyxl" \
+            --hidden-import "matplotlib.backends.backend_qtagg" \
+            --hidden-import "ofxparse" \
+            --hidden-import "yfinance" \
+            --collect-all "qtawesome" \
+            gerenciador/main.py
+          tar -czvf DevenWealth-Linux.tar.gz -C dist DevenWealth
+
+      # Compilação macOS
+      - name: Compilar no macOS (.app)
+        if: runner.os == 'macOS'
+        run: |
+          python3 -m PyInstaller --clean --noconsole --name "DevenWealth" \
+            --windowed \
+            --icon "gerenciador/assets/Logo_Principal.png" \
+            --add-data "gerenciador/assets:assets" \
+            --hidden-import "packaging.version" \
+            --hidden-import "openpyxl" \
+            --hidden-import "matplotlib.backends.backend_qtagg" \
+            --hidden-import "ofxparse" \
+            --hidden-import "yfinance" \
+            --collect-all "qtawesome" \
+            gerenciador/main.py
+          cd dist
+          if [ -d "DevenWealth.app" ]; then
+            zip -r -y ../DevenWealth-macOS.zip DevenWealth.app
+          else
+            zip -r -y ../DevenWealth-macOS.zip DevenWealth
+          fi
+          cd ..
+
+      - name: Anexar na Release do GitHub
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact-name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,42 +1,38 @@
-# Guia de Compilação: Deven Wealth para Executável (.exe)
+# Guia de Compilação Multiplataforma: Windows, Linux e macOS
 
-Este guia explica como compilar o **Deven Wealth** em um arquivo executável autônomo para Windows (`.exe`), permitindo que qualquer pessoa baixe e use sem precisar instalar o Python manualmente.
-
----
-
-## 🔒 1. Segurança e Privacidade Antes da Compilação
-
-O código do Deven Wealth foi 100% higienizado:
-- **Sem tokens hardcoded:** O token da Brapi é cadastrado pelo próprio usuário no primeiro uso e salvo com criptografia no banco de dados local.
-- **Sem dados pessoais:** Nome e saudações são dinâmicos com base no perfil cadastrado (`perfil_nome`) ou "Investidor".
-- **Sem banco de dados embutido:** O `.gitignore` ignora todos os arquivos `.db`, `.enc` e backups `.dwb`. O executável gerado não conterá nenhuma informação privada do desenvolvedor. Quando outro usuário abrir o `.exe`, o sistema apresentará a tela de boas-vindas para criar o cofre e definir a senha-mestra dele.
+Este guia detalha o passo a passo completo para compilar o **Deven Wealth** em executáveis autônomos para **Windows** (`.exe`), **Linux** (binário ELF / AppImage) e **macOS** (`.app` para MacBooks e Macs de mesa).
 
 ---
 
-## ⚡ 2. Compilação Rápida em 1 Clique
-
-Disponibilizamos scripts prontos na raiz do repositório:
-
-- **Via Prompt / Duplo-clique:** Execute o arquivo `compilar.bat`.
-- **Via PowerShell:** Execute o script `.\compilar.ps1`.
-
-O script faz tudo sozinho:
-1. Detecta o ambiente virtual (`.venv`).
-2. Garante que o `pyinstaller` está instalado.
-3. Executa a compilação com todas as bibliotecas necessárias (`matplotlib`, `qtawesome`, `packaging`, etc.) e os assets visuais.
-4. Gera a pasta pronta para distribuição em `dist\DevenWealth\`.
+## 🔒 1. Segurança e Privacidade Garantidas
+Antes da compilação, o código foi totalmente higienizado:
+- **Zero tokens no código:** O token da Brapi agora é preenchido pelo usuário final na criação do cofre e criptografado localmente.
+- **Zero dados pessoais:** O nome e saudações são dinâmicos com base no perfil cadastrado (`perfil_nome`) ou "Investidor".
+- **Sem bancos inclusos:** O `.gitignore` bloqueia qualquer arquivo `.db`, `.enc` ou `.dwb`. O executável gerado inicia limpo, pronto para o usuário cadastrar sua própria senha-mestra.
 
 ---
 
-## 🛠️ 3. Compilação Manual via Linha de Comando
+## 💻 2. Como Funciona a Compilação em Cada Sistema
 
-Se preferir executar o comando manualmente pelo terminal:
+O **PyInstaller** não realiza *cross-compilation* (compilação cruzada direta entre sistemas diferentes), pois ele empacota as bibliotecas dinâmicas C e os binários nativos do sistema onde está sendo executado (`.dll` no Windows, `.so` no Linux e `.dylib` no macOS).
 
+Por isso, você tem **duas formas de compilar**:
+1. **Localmente:** Rodando o script específico no sistema operacional correspondente.
+2. **Na Nuvem (100% Automático via GitHub Actions):** O GitHub compila os três sistemas simultaneamente nos servidores dele e anexa os arquivos prontos na sua Release!
+
+---
+
+## 🪟 3. Compilação no Windows (.exe)
+
+### Método Rápido em 1 Clique:
+- Dê dois cliques em [compilar.bat](file:///g:/deven_wealth/compilar.bat) ou execute no PowerShell:
 ```powershell
-# 1. Instalar o PyInstaller
-pip install pyinstaller
+.\compilar.ps1
+```
 
-# 2. Compilar
+### Método Manual via Terminal:
+```powershell
+pip install pyinstaller
 python -m PyInstaller --clean --noconsole --name "DevenWealth" `
     --icon "gerenciador\assets\Logo_Principal.png" `
     --add-data "gerenciador\assets;assets" `
@@ -48,22 +44,88 @@ python -m PyInstaller --clean --noconsole --name "DevenWealth" `
     --collect-all "qtawesome" `
     gerenciador\main.py
 ```
-
-### Explicação dos Parâmetros:
-- `--noconsole`: Oculta a janela preta do terminal do Windows ao abrir o app.
-- `--name "DevenWealth"`: Nome do executável (`DevenWealth.exe`).
-- `--icon`: Aplica o ícone oficial da DEVEN no executável.
-- `--add-data "gerenciador\assets;assets"`: Embutir as imagens e logos necessários para a interface.
-- `--collect-all "qtawesome"`: Garante que as fontes de ícones do FontAwesome/MaterialIcons sejam empacotadas.
-- `--hidden-import`: Inclui módulos carregados dinamicamente em tempo de execução.
+- **Saída:** Pasta `dist\DevenWealth\DevenWealth.exe`.
+- **Distribuição:** Compacte a pasta `DevenWealth` em `DevenWealth-Windows.zip`.
 
 ---
 
-## 📦 4. Como Distribuir para os Usuários (GitHub Releases)
+## 🐧 4. Compilação no Linux (Binário ELF / AppImage)
 
-1. Após a compilação, vá até a pasta `dist\DevenWealth`.
-2. Clique com o botão direito na pasta `DevenWealth` e selecione **Enviar para ➔ Pasta compactada (zip)** (ou use 7-Zip/WinRAR).
-3. Renomeie o arquivo gerado para algo como `DevenWealth-v0.2.0-Windows.zip`.
-4. No GitHub, vá na sua release e anexe o arquivo `.zip` na seção de **Assets**.
-5. Qualquer pessoa só precisará baixar o `.zip`, descompactar e dar dois cliques em `DevenWealth.exe`!
+### Método Rápido via Script:
+Execute no terminal Linux:
+```bash
+chmod +x compilar_linux.sh
+./compilar_linux.sh
+```
 
+### Método Manual via Terminal:
+```bash
+pip install pyinstaller
+python3 -m PyInstaller --clean --noconsole --name "DevenWealth" \
+    --add-data "gerenciador/assets:assets" \
+    --hidden-import "packaging.version" \
+    --hidden-import "openpyxl" \
+    --hidden-import "matplotlib.backends.backend_qtagg" \
+    --hidden-import "ofxparse" \
+    --hidden-import "yfinance" \
+    --collect-all "qtawesome" \
+    gerenciador/main.py
+```
+- **Saída:** Pasta `dist/DevenWealth/DevenWealth`.
+- **Distribuição:** Compacte a pasta em `.tar.gz`:
+```bash
+tar -czvf DevenWealth-Linux.tar.gz -C dist DevenWealth
+```
+
+---
+
+## 🍎 5. Compilação no macOS (MacBooks e Macs de Mesa)
+
+### Método Rápido via Script:
+Execute no terminal do macOS:
+```bash
+chmod +x compilar_mac.sh
+./compilar_mac.sh
+```
+
+### Método Manual via Terminal:
+```bash
+pip install pyinstaller
+python3 -m PyInstaller --clean --noconsole --name "DevenWealth" \
+    --windowed \
+    --icon "gerenciador/assets/Logo_Principal.png" \
+    --add-data "gerenciador/assets:assets" \
+    --hidden-import "packaging.version" \
+    --hidden-import "openpyxl" \
+    --hidden-import "matplotlib.backends.backend_qtagg" \
+    --hidden-import "ofxparse" \
+    --hidden-import "yfinance" \
+    --collect-all "qtawesome" \
+    gerenciador/main.py
+```
+- **Saída:** Pacote de aplicativo macOS `dist/DevenWealth.app`.
+- **Distribuição:** Compacte o aplicativo preservando os links simbólicos do macOS:
+```bash
+cd dist && zip -r -y ../DevenWealth-macOS.zip DevenWealth.app && cd ..
+```
+No Mac, o usuário só precisa descompactar e arrastar o `DevenWealth.app` para a pasta **Aplicativos (Applications)**!
+
+---
+
+## ☁️ 6. Compilação Automática dos 3 Sistemas no GitHub (Recomendado!)
+
+Configuramos o fluxo de integração contínua em `.github/workflows/build_releases.yml`.
+
+### Como Funciona:
+Você **não precisa ter um computador Mac ou Linux em casa**:
+1. No seu repositório no GitHub, quando você publicar uma nova **Release** (ex: `v0.2.0`), os servidores gratuitos do GitHub disparam 3 máquinas virtuais em paralelo:
+   - Um servidor **Windows** que gera `DevenWealth-Windows.zip`.
+   - Um servidor **Ubuntu Linux** que gera `DevenWealth-Linux.tar.gz`.
+   - Um servidor **macOS Apple Silicon** que gera `DevenWealth-macOS.zip`.
+2. Em poucos minutos, os 3 arquivos aparecem automaticamente anexados para download na sua Release no GitHub!
+
+### Disparo Manual (Sem publicar release):
+Se quiser gerar os pacotes a qualquer momento:
+1. Acesse seu repositório no GitHub ➔ Aba **Actions**.
+2. Clique no workflow **Build Multiplataforma (Windows, Linux, macOS)** no menu à esquerda.
+3. Clique no botão **Run workflow** ➔ **Run workflow**.
